@@ -10,3 +10,6 @@ ctor = "0.2.9"
 [dependencies.fishhook]
 git = "https://github.com/blkmlk/fishhook-rs"
 branch = "main"
+
+[lib]
+crate-type = ["cdylib"]
