@@ -1,0 +1,12 @@
+[package]
+name = "libmemtrack"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = "0.2.164"
+ctor = "0.2.9"
+
+[dependencies.fishhook]
+git = "https://github.com/blkmlk/fishhook-rs"
+branch = "main"
