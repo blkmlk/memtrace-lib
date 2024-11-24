@@ -1,5 +1,9 @@
+mod tracker;
+
+use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
+use std::env;
 use std::ffi::c_void;
 use std::sync::Once;
 
@@ -11,6 +15,7 @@ static mut ORIGINAL_REALLOC: Option<
     unsafe extern "C" fn(ptr: *mut c_void, size: size_t) -> *mut c_void,
 > = None;
 static mut ORIGINAL_FREE: Option<unsafe extern "C" fn(ptr: *mut c_void)> = None;
+static mut TRACKER: Option<Tracker> = None;
 
 #[no_mangle]
 pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
@@ -26,7 +31,13 @@ pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
     original_free(ptr);
 }
 
-unsafe fn prepare() {
+pub extern "C" fn my_exit() {
+    unsafe {
+        TRACKER.as_mut().unwrap().close();
+    }
+}
+
+unsafe fn init_functions() {
     INIT.call_once(|| {
         let symbol = b"malloc\0";
         let malloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
@@ -43,13 +54,20 @@ unsafe fn prepare() {
         } else {
             eprintln!("Error: Could not locate original free!");
         }
+
+        let pipe_filepath = env::var("PIPE_FILEPATH").expect("PIPE_FILEPATH must be set");
+
+        TRACKER = Some(Tracker::new(pipe_filepath));
+        // TRACKER.as_mut().unwrap().init();
+
+        libc::atexit(my_exit);
     });
 }
 
 #[ctor::ctor]
 fn init() {
     unsafe {
-        prepare();
+        init_functions();
 
         register(vec![
             Rebinding {
@@ -59,6 +77,10 @@ fn init() {
             Rebinding {
                 name: "free".to_string(),
                 function: my_free as *const c_void,
+            },
+            Rebinding {
+                name: "atexit".to_string(),
+                function: my_exit as *const c_void,
             },
         ]);
     }
