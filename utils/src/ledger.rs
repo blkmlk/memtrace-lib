@@ -21,7 +21,19 @@ impl Writer {
     }
 
     pub fn write_version(&mut self, version: usize) {
-        _ = self.writer.write_fmt(format_args!("t {}", version));
+        _ = self.writer.write_fmt(format_args!("v {}\n", version));
+    }
+
+    pub fn write_exec(&mut self, ex: &str) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("x {:x} {}\n", ex.as_bytes().len(), ex));
+    }
+
+    pub fn write_page_info(&mut self, page_size: usize, phys_pages: usize) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("x {:x} {:x}\n", page_size, phys_pages));
     }
 
     pub fn flush(&mut self) {

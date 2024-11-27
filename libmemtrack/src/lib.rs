@@ -58,7 +58,7 @@ unsafe fn init_functions() {
         let pipe_filepath = env::var("PIPE_FILEPATH").expect("PIPE_FILEPATH must be set");
 
         TRACKER = Some(Tracker::new(pipe_filepath));
-        // TRACKER.as_mut().unwrap().init();
+        TRACKER.as_mut().unwrap().init();
 
         libc::atexit(my_exit);
     });
