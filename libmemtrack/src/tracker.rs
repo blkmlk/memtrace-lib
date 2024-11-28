@@ -1,3 +1,4 @@
+use crate::tracer::Tracer;
 use libc::sysconf;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -24,6 +25,10 @@ impl Tracker {
         self.writer.write_exec(&sys_info.exec_path);
         self.writer
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
+    }
+
+    pub fn on_malloc(&self) {
+        let tracer = Tracer::new();
     }
 
     pub fn close(&mut self) {

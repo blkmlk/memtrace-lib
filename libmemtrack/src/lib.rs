@@ -1,3 +1,4 @@
+mod tracer;
 mod tracker;
 
 use crate::tracker::Tracker;
@@ -21,6 +22,8 @@ static mut TRACKER: Option<Tracker> = None;
 pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
+
+    TRACKER.as_mut().unwrap().on_malloc();
 
     ptr
 }
