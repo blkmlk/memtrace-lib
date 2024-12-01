@@ -48,6 +48,14 @@ impl Writer {
             .write_fmt(format_args!("+ {:x} {:x} {:x}\n", size, parent_idx, ptr));
     }
 
+    pub fn write_free(&mut self, ptr: usize) {
+        _ = self.writer.write_fmt(format_args!("- {:x}\n", ptr));
+    }
+
+    pub fn write_duration(&mut self, duration: u128) {
+        _ = self.writer.write_fmt(format_args!("c {}\n", duration));
+    }
+
     pub fn flush(&mut self) {
         _ = self.writer.flush();
     }

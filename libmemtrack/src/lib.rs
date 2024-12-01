@@ -5,9 +5,9 @@ mod tracker;
 use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
+use std::env;
 use std::ffi::c_void;
 use std::sync::Once;
-use std::env;
 
 static INIT: Once = Once::new();
 static mut ORIGINAL_MALLOC: Option<unsafe extern "C" fn(size: size_t) -> *mut c_void> = None;
@@ -33,11 +33,13 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
 pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
+
+    TRACKER.as_mut().unwrap().on_free(ptr as usize);
 }
 
 pub extern "C" fn my_exit() {
     unsafe {
-        TRACKER.as_mut().unwrap().close();
+        TRACKER.as_mut().unwrap().on_exit();
     }
 }
 

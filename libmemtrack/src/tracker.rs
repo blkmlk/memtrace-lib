@@ -3,11 +3,13 @@ use crate::trace_tree::TraceTree;
 use libc::sysconf;
 use std::fs::OpenOptions;
 use std::path::Path;
+use std::time::Instant;
 use utils::ledger::Writer;
 
 pub struct Tracker {
     writer: Writer,
     trace_tree: TraceTree,
+    started_at: Instant,
 }
 
 impl Tracker {
@@ -17,6 +19,7 @@ impl Tracker {
         Self {
             writer: Writer::new(file),
             trace_tree: TraceTree::new(),
+            started_at: Instant::now(),
         }
     }
 
@@ -40,7 +43,14 @@ impl Tracker {
         self.writer.write_alloc(size, idx, ptr);
     }
 
-    pub fn close(&mut self) {
+    pub fn on_free(&mut self, ptr: usize) {
+        self.writer.write_free(ptr)
+    }
+
+    pub fn on_exit(&mut self) {
+        let elapsed = Instant::now().duration_since(self.started_at).as_millis();
+        self.writer.write_duration(elapsed);
+
         self.writer.flush()
     }
 }
