@@ -25,7 +25,7 @@ impl TraceNode {
             return self.index;
         };
 
-        match self.children.iter_mut().rfind(|c| c.ip == ip) {
+        match self.children.iter_mut().find(|c| c.ip == ip) {
             None => {
                 self.children.push(TraceNode::new(*next_idx, ip));
                 on_new(ip, self.index);
