@@ -56,6 +56,10 @@ impl Writer {
         _ = self.writer.write_fmt(format_args!("c {}\n", duration));
     }
 
+    pub fn write_rss(&mut self, rss: usize) {
+        _ = self.writer.write_fmt(format_args!("R {:x}\n", rss));
+    }
+
     pub fn flush(&mut self) {
         _ = self.writer.flush();
     }
