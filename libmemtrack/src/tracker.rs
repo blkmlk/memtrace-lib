@@ -1,4 +1,5 @@
-use crate::tracer::Tracer;
+use crate::trace::Trace;
+use crate::trace_tree::TraceTree;
 use libc::sysconf;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -6,6 +7,7 @@ use utils::ledger::Writer;
 
 pub struct Tracker {
     writer: Writer,
+    trace_tree: TraceTree,
 }
 
 impl Tracker {
@@ -14,6 +16,7 @@ impl Tracker {
 
         Self {
             writer: Writer::new(file),
+            trace_tree: TraceTree::new(),
         }
     }
 
@@ -27,8 +30,14 @@ impl Tracker {
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
     }
 
-    pub fn on_malloc(&self) {
-        let tracer = Tracer::new();
+    pub fn on_malloc(&mut self, size: usize, ptr: usize) {
+        let trace = Trace::new();
+
+        let idx = self
+            .trace_tree
+            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
+
+        self.writer.write_alloc(size, idx, ptr);
     }
 
     pub fn close(&mut self) {

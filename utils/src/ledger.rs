@@ -36,6 +36,18 @@ impl Writer {
             .write_fmt(format_args!("x {:x} {:x}\n", page_size, phys_pages));
     }
 
+    pub fn write_trace(&mut self, ip: u64, parent_idx: u64) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("t {:x} {:x}\n", ip, parent_idx));
+    }
+
+    pub fn write_alloc(&mut self, size: usize, parent_idx: u64, ptr: usize) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("+ {:x} {:x} {:x}\n", size, parent_idx, ptr));
+    }
+
     pub fn flush(&mut self) {
         _ = self.writer.flush();
     }

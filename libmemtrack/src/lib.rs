@@ -1,12 +1,13 @@
-mod tracer;
+mod trace;
+mod trace_tree;
 mod tracker;
 
 use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
-use std::env;
 use std::ffi::c_void;
 use std::sync::Once;
+use std::env;
 
 static INIT: Once = Once::new();
 static mut ORIGINAL_MALLOC: Option<unsafe extern "C" fn(size: size_t) -> *mut c_void> = None;
@@ -23,7 +24,7 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
-    TRACKER.as_mut().unwrap().on_malloc();
+    TRACKER.as_mut().unwrap().on_malloc(size, ptr as usize);
 
     ptr
 }

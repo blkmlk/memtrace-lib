@@ -3,12 +3,12 @@ use std::ffi::c_void;
 
 const MAX_SIZE: usize = 64;
 
-pub struct Tracer {
+pub struct Trace {
     stack: [u64; MAX_SIZE],
     len: usize,
 }
 
-impl Tracer {
+impl Trace {
     pub fn new() -> Self {
         let mut tracer = Self {
             stack: [0; MAX_SIZE],
@@ -18,6 +18,10 @@ impl Tracer {
         tracer.init();
 
         tracer
+    }
+
+    pub fn as_slice(&self) -> &[u64] {
+        &self.stack[..self.len]
     }
 
     fn init(&mut self) {
@@ -41,7 +45,7 @@ unsafe extern "C" fn callback(
     ctx: *mut libunwind::_Unwind_Context,
     arg: *mut c_void,
 ) -> _Unwind_Reason_Code {
-    let tracer = &mut *(arg as *mut Tracer);
+    let tracer = &mut *(arg as *mut Trace);
 
     let pc = libunwind::_Unwind_GetIP(ctx) as u64;
 
