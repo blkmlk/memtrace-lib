@@ -7,10 +7,10 @@ use libc::{
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::Instant;
-use utils::ledger::Writer;
+use utils::pipe_writer::PipeWriter;
 
 pub struct Tracker {
-    writer: Writer,
+    writer: PipeWriter,
     trace_tree: TraceTree,
     started_at: Instant,
 }
@@ -20,7 +20,7 @@ impl Tracker {
         let file = OpenOptions::new().write(true).open(filepath).unwrap();
 
         Self {
-            writer: Writer::new(file),
+            writer: PipeWriter::new(file),
             trace_tree: TraceTree::new(),
             started_at: Instant::now(),
         }

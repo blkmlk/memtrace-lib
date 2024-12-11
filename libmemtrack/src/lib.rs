@@ -21,6 +21,7 @@ static mut TRACKER: Option<Tracker> = None;
 
 #[no_mangle]
 pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
+    println!("+");
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
@@ -30,7 +31,26 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
+    println!("c");
+    let original_calloc = ORIGINAL_CALLOC.unwrap();
+    let ptr = original_calloc(num, size);
+
+    ptr
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn my_realloc(ptr: *mut c_void, size: size_t) -> *mut c_void {
+    println!("r");
+    let original_realloc = ORIGINAL_REALLOC.unwrap();
+    let ptr = original_realloc(ptr, size);
+
+    ptr
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
+    println!("- {:x}", ptr as usize);
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
 
@@ -51,6 +71,22 @@ unsafe fn init_functions() {
             ORIGINAL_MALLOC = Some(std::mem::transmute(malloc_ptr));
         } else {
             eprintln!("Error: Could not locate original malloc!");
+        }
+
+        let symbol = b"calloc\0";
+        let calloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
+        if !calloc_ptr.is_null() {
+            ORIGINAL_CALLOC = Some(std::mem::transmute(calloc_ptr));
+        } else {
+            eprintln!("Error: Could not locate original calloc!");
+        }
+
+        let symbol = b"realloc\0";
+        let realloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
+        if !realloc_ptr.is_null() {
+            ORIGINAL_REALLOC = Some(std::mem::transmute(realloc_ptr));
+        } else {
+            eprintln!("Error: Could not locate original realloc!");
         }
 
         let symbol = b"free\0";
@@ -79,6 +115,14 @@ fn init() {
             Rebinding {
                 name: "malloc".to_string(),
                 function: my_malloc as *const c_void,
+            },
+            Rebinding {
+                name: "calloc".to_string(),
+                function: my_calloc as *const c_void,
+            },
+            Rebinding {
+                name: "realloc".to_string(),
+                function: my_realloc as *const c_void,
             },
             Rebinding {
                 name: "free".to_string(),

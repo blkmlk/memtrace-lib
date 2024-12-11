@@ -9,11 +9,11 @@ enum Operation {
 
 pub struct Reader {}
 
-pub struct Writer {
+pub struct PipeWriter {
     writer: BufWriter<File>,
 }
 
-impl Writer {
+impl PipeWriter {
     pub fn new(file: File) -> Self {
         Self {
             writer: BufWriter::with_capacity(4096, file),

@@ -10,8 +10,9 @@ process_path = "0.1.4"
 libunwind = "1.3.3"
 
 [dependencies.fishhook]
-git = "https://github.com/blkmlk/fishhook-rs"
-branch = "main"
+#git = "https://github.com/blkmlk/fishhook-rs"
+#branch = "main"
+path = "../../fishhook"
 
 [dependencies.utils]
 path = "../utils"
