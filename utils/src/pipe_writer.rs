@@ -20,7 +20,7 @@ impl PipeWriter {
         }
     }
 
-    pub fn write_version(&mut self, version: usize) {
+    pub fn write_version(&mut self, version: u16) {
         _ = self.writer.write_fmt(format_args!("v {}\n", version));
     }
 
@@ -33,7 +33,7 @@ impl PipeWriter {
     pub fn write_page_info(&mut self, page_size: usize, phys_pages: usize) {
         _ = self
             .writer
-            .write_fmt(format_args!("x {:x} {:x}\n", page_size, phys_pages));
+            .write_fmt(format_args!("X {:x} {:x}\n", page_size, phys_pages));
     }
 
     pub fn write_trace(&mut self, ip: usize, parent_idx: usize) {
