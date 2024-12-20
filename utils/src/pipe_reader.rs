@@ -8,13 +8,14 @@ pub struct PipeReader {
     line: String,
 }
 
+#[derive(Debug)]
 pub enum Error {
     InvalidFormat,
     IOError(io::Error),
 }
 
 impl From<ParseIntError> for Error {
-    fn from(value: ParseIntError) -> Self {
+    fn from(_: ParseIntError) -> Self {
         Self::InvalidFormat
     }
 }
@@ -25,6 +26,7 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(Debug)]
 enum Record {
     Version(u16),
     Exec(String),
@@ -66,10 +68,11 @@ impl PipeReader {
 
         match cmd {
             "v" => {
-                let version = u16::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
+                let version = split.next().ok_or(Error::InvalidFormat)?.parse()?;
                 Ok(Record::Version(version))
             }
             "x" => {
+                let _ = split.next();
                 let exec = split.next().ok_or(Error::InvalidFormat)?.to_string();
                 Ok(Record::Exec(exec))
             }
@@ -110,5 +113,26 @@ impl PipeReader {
             }
             _ => Err(Error::InvalidFormat),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pipe_reader::PipeReader;
+    use std::fs::OpenOptions;
+
+    #[test]
+    fn test_read_record() {
+        let file = OpenOptions::new().read(true).open("/tmp/trace").unwrap();
+        let mut reader = PipeReader::new(file);
+
+        let record = reader.read_record().unwrap();
+        println!("{:?}", record);
+
+        let record = reader.read_record().unwrap();
+        println!("{:?}", record);
+
+        let record = reader.read_record().unwrap();
+        println!("{:?}", record);
     }
 }
