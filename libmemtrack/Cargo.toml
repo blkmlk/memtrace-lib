@@ -7,15 +7,13 @@ edition = "2021"
 libc = "0.2.164"
 ctor = "0.2.9"
 process_path = "0.1.4"
-libunwind = "1.3.3"
 
 [dependencies.fishhook]
-#git = "https://github.com/blkmlk/fishhook-rs"
-#branch = "main"
-path = "../../fishhook"
+git = "https://github.com/blkmlk/fishhook-rs"
+branch = "main"
 
 [dependencies.utils]
 path = "../utils"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["dylib"]

@@ -7,6 +7,7 @@ use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
 use std::env;
 use std::ffi::c_void;
+use std::os::unix::ffi::OsStrExt;
 use std::sync::Once;
 
 static INIT: Once = Once::new();
@@ -21,7 +22,6 @@ static mut TRACKER: Option<Tracker> = None;
 
 #[no_mangle]
 pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
-    println!("+");
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
@@ -32,7 +32,6 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
 
 #[no_mangle]
 pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
-    println!("c");
     let original_calloc = ORIGINAL_CALLOC.unwrap();
     let ptr = original_calloc(num, size);
 
@@ -41,7 +40,6 @@ pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
 
 #[no_mangle]
 pub unsafe extern "C" fn my_realloc(ptr: *mut c_void, size: size_t) -> *mut c_void {
-    println!("r");
     let original_realloc = ORIGINAL_REALLOC.unwrap();
     let ptr = original_realloc(ptr, size);
 
@@ -50,7 +48,6 @@ pub unsafe extern "C" fn my_realloc(ptr: *mut c_void, size: size_t) -> *mut c_vo
 
 #[no_mangle]
 pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
-    println!("- {:x}", ptr as usize);
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
 
