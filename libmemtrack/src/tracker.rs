@@ -46,6 +46,20 @@ impl Tracker {
         self.writer.write_alloc(size, idx, ptr);
     }
 
+    pub fn on_realloc(&mut self, size: usize, ptr_in: usize, ptr_out: usize) {
+        let trace = Trace::new();
+
+        if ptr_in > 0 {
+            self.on_free(ptr_in);
+        }
+
+        let idx = self
+            .trace_tree
+            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
+
+        self.writer.write_alloc(size, idx, ptr_out);
+    }
+
     pub fn on_free(&mut self, ptr: usize) {
         self.writer.write_free(ptr)
     }
