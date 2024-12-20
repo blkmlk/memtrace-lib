@@ -1,13 +1,13 @@
 use crate::trace::Trace;
 
 struct TraceNode {
-    ip: u64,
-    index: u64,
+    ip: usize,
+    index: usize,
     children: Vec<TraceNode>,
 }
 
 impl TraceNode {
-    pub fn new(index: u64, ip: u64) -> Self {
+    pub fn new(index: usize, ip: usize) -> Self {
         Self {
             ip,
             index,
@@ -17,10 +17,10 @@ impl TraceNode {
 
     fn index(
         &mut self,
-        mut it: impl Iterator<Item = u64>,
-        on_new: &mut impl FnMut(u64, u64),
-        next_idx: &mut u64,
-    ) -> u64 {
+        mut it: impl Iterator<Item = usize>,
+        on_new: &mut impl FnMut(usize, usize),
+        next_idx: &mut usize,
+    ) -> usize {
         let Some(ip) = it.next() else {
             return self.index;
         };
@@ -44,7 +44,7 @@ impl TraceNode {
 
 pub struct TraceTree {
     root: TraceNode,
-    last_index: u64,
+    last_index: usize,
 }
 
 impl TraceTree {
@@ -55,7 +55,7 @@ impl TraceTree {
         }
     }
 
-    pub fn index(&mut self, trace: Trace, mut on_new: impl FnMut(u64, u64)) -> u64 {
+    pub fn index(&mut self, trace: Trace, mut on_new: impl FnMut(usize, usize)) -> usize {
         let it = trace.as_slice().iter().copied();
         let idx = self.root.index(it, &mut on_new, &mut self.last_index);
 

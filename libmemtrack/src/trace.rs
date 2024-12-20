@@ -7,7 +7,7 @@ extern "C" {
 const MAX_SIZE: usize = 64;
 
 pub struct Trace {
-    stack: [u64; MAX_SIZE],
+    stack: [usize; MAX_SIZE],
     len: usize,
 }
 
@@ -23,7 +23,7 @@ impl Trace {
         tracer
     }
 
-    pub fn as_slice(&self) -> &[u64] {
+    pub fn as_slice(&self) -> &[usize] {
         &self.stack[..self.len]
     }
 
