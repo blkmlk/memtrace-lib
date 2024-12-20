@@ -35,15 +35,25 @@ pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
     let original_calloc = ORIGINAL_CALLOC.unwrap();
     let ptr = original_calloc(num, size);
 
+    TRACKER
+        .as_mut()
+        .unwrap()
+        .on_malloc(num * size, ptr as usize);
+
     ptr
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn my_realloc(ptr: *mut c_void, size: size_t) -> *mut c_void {
+pub unsafe extern "C" fn my_realloc(ptr_in: *mut c_void, size: size_t) -> *mut c_void {
     let original_realloc = ORIGINAL_REALLOC.unwrap();
-    let ptr = original_realloc(ptr, size);
+    let ptr_out = original_realloc(ptr_in, size);
 
-    ptr
+    TRACKER
+        .as_mut()
+        .unwrap()
+        .on_realloc(size, ptr_in as usize, ptr_out as usize);
+
+    ptr_out
 }
 
 #[no_mangle]
