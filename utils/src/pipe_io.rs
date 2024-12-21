@@ -1,7 +1,16 @@
 use std::fs::File;
 use std::io;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::num::ParseIntError;
+
+const OPERATION_VERSION: u8 = b'v';
+const OPERATION_EXEC: u8 = b'x';
+const OPERATION_PAGE_INFO: u8 = b'X';
+const OPERATION_TRACE: u8 = b't';
+const OPERATION_ALLOC: u8 = b'+';
+const OPERATION_FREE: u8 = b'-';
+const OPERATION_DURATION: u8 = b'c';
+const OPERATION_RSS: u8 = b'R';
 
 pub struct PipeReader {
     reader: BufReader<File>,
@@ -66,22 +75,27 @@ impl PipeReader {
 
         let cmd = split.next().ok_or(Error::InvalidFormat)?;
 
-        match cmd {
-            "v" => {
+        let op = cmd
+            .as_bytes()
+            .first()
+            .copied()
+            .ok_or(Error::InvalidFormat)?;
+        match op {
+            OPERATION_VERSION => {
                 let version = split.next().ok_or(Error::InvalidFormat)?.parse()?;
                 Ok(Record::Version(version))
             }
-            "x" => {
+            OPERATION_EXEC => {
                 let _ = split.next();
                 let exec = split.next().ok_or(Error::InvalidFormat)?.to_string();
                 Ok(Record::Exec(exec))
             }
-            "X" => {
+            OPERATION_PAGE_INFO => {
                 let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 let pages = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 Ok(Record::PageInfo { size, pages })
             }
-            "t" => {
+            OPERATION_TRACE => {
                 let ip = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 let idx = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 Ok(Record::Trace {
@@ -89,7 +103,7 @@ impl PipeReader {
                     parent_idx: idx,
                 })
             }
-            "+" => {
+            OPERATION_ALLOC => {
                 let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 let idx = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 let ptr = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
@@ -99,15 +113,15 @@ impl PipeReader {
                     parent_idx: idx,
                 })
             }
-            "-" => {
+            OPERATION_FREE => {
                 let ptr = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 Ok(Record::Free { ptr })
             }
-            "c" => {
+            OPERATION_DURATION => {
                 let duration = u128::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 Ok(Record::Duration(duration))
             }
-            "R" => {
+            OPERATION_RSS => {
                 let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
                 Ok(Record::RSS(size))
             }
@@ -116,9 +130,79 @@ impl PipeReader {
     }
 }
 
+pub struct PipeWriter {
+    writer: BufWriter<File>,
+}
+
+impl PipeWriter {
+    pub fn new(file: File) -> Self {
+        Self {
+            writer: BufWriter::with_capacity(4096, file),
+        }
+    }
+
+    pub fn write_version(&mut self, version: u16) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("{} {}\n", OPERATION_VERSION, version));
+    }
+
+    pub fn write_exec(&mut self, ex: &str) {
+        _ = self.writer.write_fmt(format_args!(
+            "{} {:x} {}\n",
+            OPERATION_EXEC,
+            ex.as_bytes().len(),
+            ex
+        ));
+    }
+
+    pub fn write_page_info(&mut self, page_size: usize, phys_pages: usize) {
+        _ = self.writer.write_fmt(format_args!(
+            "{} {:x} {:x}\n",
+            OPERATION_PAGE_INFO, page_size, phys_pages
+        ));
+    }
+
+    pub fn write_trace(&mut self, ip: usize, parent_idx: usize) {
+        _ = self.writer.write_fmt(format_args!(
+            "{} {:x} {:x}\n",
+            OPERATION_TRACE, ip, parent_idx
+        ));
+    }
+
+    pub fn write_alloc(&mut self, size: usize, parent_idx: usize, ptr: usize) {
+        _ = self.writer.write_fmt(format_args!(
+            "{} {:x} {:x} {:x}\n",
+            OPERATION_ALLOC, size, parent_idx, ptr
+        ));
+    }
+
+    pub fn write_free(&mut self, ptr: usize) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("{} {:x}\n", OPERATION_FREE, ptr));
+    }
+
+    pub fn write_duration(&mut self, duration: u128) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("{} {}\n", OPERATION_DURATION, duration));
+    }
+
+    pub fn write_rss(&mut self, rss: usize) {
+        _ = self
+            .writer
+            .write_fmt(format_args!("{} {:x}\n", OPERATION_RSS, rss));
+    }
+
+    pub fn flush(&mut self) {
+        _ = self.writer.flush();
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::pipe_reader::PipeReader;
+    use crate::pipe_io::PipeReader;
     use std::fs::OpenOptions;
 
     #[test]

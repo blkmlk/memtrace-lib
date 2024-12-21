@@ -1,3 +1,2 @@
-mod executor;
-mod pipe_reader;
-pub mod pipe_writer;
+pub mod executor;
+pub mod pipe_io;

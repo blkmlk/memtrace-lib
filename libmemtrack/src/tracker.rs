@@ -7,7 +7,7 @@ use libc::{
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::Instant;
-use utils::pipe_writer::PipeWriter;
+use utils::pipe_io::PipeWriter;
 
 pub struct Tracker {
     writer: PipeWriter,
