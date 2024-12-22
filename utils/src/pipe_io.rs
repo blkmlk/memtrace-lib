@@ -36,7 +36,7 @@ impl From<io::Error> for Error {
 }
 
 #[derive(Debug)]
-enum Record {
+pub enum Record {
     Version(u16),
     Exec(String),
     PageInfo {
@@ -67,11 +67,23 @@ impl PipeReader {
         }
     }
 
-    pub fn read_record(&mut self) -> Result<Record, Error> {
+    pub fn read_record(&mut self) -> Option<Result<Record, Error>> {
         self.line.clear();
-        self.reader.read_line(&mut self.line)?;
+        if let Err(e) = self.reader.read_line(&mut self.line) {
+            return Some(Err(e.into()));
+        }
 
-        let mut split = self.line.split_whitespace();
+        if self.line.is_empty() {
+            return None;
+        }
+
+        let record = Self::parse_record(&self.line);
+
+        Some(record)
+    }
+
+    fn parse_record(line: &str) -> Result<Record, Error> {
+        let mut split = line.split_whitespace();
 
         let cmd = split.next().ok_or(Error::InvalidFormat)?;
 
@@ -80,13 +92,14 @@ impl PipeReader {
             .first()
             .copied()
             .ok_or(Error::InvalidFormat)?;
+
         match op {
             OPERATION_VERSION => {
                 let version = split.next().ok_or(Error::InvalidFormat)?.parse()?;
                 Ok(Record::Version(version))
             }
             OPERATION_EXEC => {
-                let _ = split.next();
+                _ = split.next().ok_or(Error::InvalidFormat)?;
                 let exec = split.next().ok_or(Error::InvalidFormat)?.to_string();
                 Ok(Record::Exec(exec))
             }
