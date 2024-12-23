@@ -4,8 +4,7 @@ use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
-use std::path::Path;
-use std::process::{Child, Command, ExitStatus};
+use std::process::{Child, Command, ExitStatus, Stdio};
 
 #[derive(Debug)]
 pub enum Error {
@@ -29,11 +28,8 @@ impl From<io::Error> for Error {
 pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
     let pid = std::process::id();
     let pipe_file_path = format!("/tmp/{}.pipe", pid);
-    let path = Path::new(&pipe_file_path);
-    mkfifo(path, Mode::S_IRUSR | Mode::S_IWUSR).unwrap();
 
-    let pipe_file = OpenOptions::new().read(true).open(&pipe_file_path).unwrap();
-    let reader = PipeReader::new(pipe_file);
+    mkfifo(pipe_file_path.as_str(), Mode::S_IRUSR | Mode::S_IWUSR).unwrap();
 
     let envs = [
         ("PIPE_FILEPATH", pipe_file_path.as_str()),
@@ -44,40 +40,47 @@ pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
     ];
 
     let mut cmd = Command::new(program);
+    cmd.stdout(Stdio::null());
     cmd.envs(envs);
     cmd.current_dir(cwd);
 
-    ExecResult::new(cmd, reader, pipe_file_path)
+    let child = cmd.spawn().unwrap();
+
+    ExecResult::new(child, pipe_file_path)
 }
 
 pub struct ExecResult {
-    reader: PipeReader,
-    cmd: Command,
+    child: Child,
     pipe_filepath: String,
-    child: Option<Child>,
+    reader: Option<PipeReader>,
 }
 
 impl ExecResult {
-    pub fn new(cmd: Command, reader: PipeReader, pipe_filepath: String) -> Self {
+    pub fn new(child: Child, pipe_filepath: String) -> Self {
         Self {
-            reader,
-            cmd,
+            child,
             pipe_filepath,
-            child: None,
+            reader: None,
         }
     }
 
     pub fn next(&mut self) -> Option<Result<Record, Error>> {
-        match &mut self.child {
+        let record = match &mut self.reader {
             None => {
-                let child = match self.cmd.spawn() {
-                    Ok(v) => v,
-                    Err(e) => return Some(Err(e.into())),
-                };
+                let pipe_file = OpenOptions::new()
+                    .read(true)
+                    .open(&self.pipe_filepath)
+                    .unwrap();
 
-                self.child = Some(child);
+                let mut reader = PipeReader::new(pipe_file);
+
+                let record = reader.read_record()?.map_err(Error::from);
+
+                self.reader = Some(reader);
+
+                record
             }
-            Some(child) => match child.try_wait() {
+            Some(reader) => match self.child.try_wait() {
                 Ok(result) => {
                     if let Some(exit) = result {
                         return if exit.success() {
@@ -86,14 +89,13 @@ impl ExecResult {
                             Some(Err(Error::CmdFailed(exit)))
                         };
                     }
+                    reader.read_record()?.map_err(Error::from)
                 }
                 Err(e) => return Some(Err(e.into())),
             },
-        }
+        };
 
-        let record = self.reader.read_record()?;
-
-        Some(record.map_err(Error::from))
+        Some(record)
     }
 }
 
