@@ -69,12 +69,13 @@ impl PipeReader {
 
     pub fn read_record(&mut self) -> Option<Result<Record, Error>> {
         self.line.clear();
-        if let Err(e) = self.reader.read_line(&mut self.line) {
-            return Some(Err(e.into()));
-        }
-
-        if self.line.is_empty() {
-            return None;
+        match self.reader.read_line(&mut self.line) {
+            Ok(n) => {
+                if n == 0 {
+                    return None;
+                }
+            }
+            Err(e) => return Some(Err(e.into())),
         }
 
         let record = Self::parse_record(&self.line);
@@ -87,11 +88,7 @@ impl PipeReader {
 
         let cmd = split.next().ok_or(Error::InvalidFormat)?;
 
-        let op = cmd
-            .as_bytes()
-            .first()
-            .copied()
-            .ok_or(Error::InvalidFormat)?;
+        let op: u8 = cmd.parse().map_err(|_| Error::InvalidFormat)?;
 
         match op {
             OPERATION_VERSION => {

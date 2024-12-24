@@ -4,7 +4,8 @@ use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::os::unix::fs::OpenOptionsExt;
+use std::process::{Child, Command, ExitStatus};
 
 #[derive(Debug)]
 pub enum Error {
@@ -40,7 +41,7 @@ pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
     ];
 
     let mut cmd = Command::new(program);
-    cmd.stdout(Stdio::null());
+    // cmd.stdout(Stdio::null());
     cmd.envs(envs);
     cmd.current_dir(cwd);
 
@@ -65,37 +66,33 @@ impl ExecResult {
     }
 
     pub fn next(&mut self) -> Option<Result<Record, Error>> {
-        let record = match &mut self.reader {
-            None => {
-                let pipe_file = OpenOptions::new()
-                    .read(true)
-                    .open(&self.pipe_filepath)
-                    .unwrap();
+        loop {
+            match &mut self.reader {
+                None => {
+                    let pipe_file = OpenOptions::new()
+                        .read(true)
+                        .open(&self.pipe_filepath)
+                        .unwrap();
 
-                let mut reader = PipeReader::new(pipe_file);
-
-                let record = reader.read_record()?.map_err(Error::from);
-
-                self.reader = Some(reader);
-
-                record
-            }
-            Some(reader) => match self.child.try_wait() {
-                Ok(result) => {
-                    if let Some(exit) = result {
-                        return if exit.success() {
-                            None
-                        } else {
-                            Some(Err(Error::CmdFailed(exit)))
-                        };
-                    }
-                    reader.read_record()?.map_err(Error::from)
+                    let reader = PipeReader::new(pipe_file);
+                    self.reader = Some(reader);
                 }
-                Err(e) => return Some(Err(e.into())),
-            },
-        };
+                Some(reader) => {
+                    return match self.child.try_wait() {
+                        Ok(result) => {
+                            if let Some(exit) = result {
+                                if !exit.success() {
+                                    return Some(Err(Error::CmdFailed(exit)));
+                                }
+                            }
 
-        Some(record)
+                            Some(reader.read_record()?.map_err(Error::from))
+                        }
+                        Err(e) => Some(Err(e.into())),
+                    }
+                }
+            }
+        }
     }
 }
 
