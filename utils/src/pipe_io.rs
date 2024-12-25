@@ -1,6 +1,8 @@
+use byteorder::ByteOrder;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::num::ParseIntError;
 
 const OPERATION_VERSION: u8 = b'v';
@@ -14,7 +16,7 @@ const OPERATION_RSS: u8 = b'R';
 
 pub struct PipeReader {
     reader: BufReader<File>,
-    line: String,
+    buf: [u8; 1024],
 }
 
 #[derive(Debug)]
@@ -35,7 +37,7 @@ impl From<io::Error> for Error {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Record {
     Version(u16),
     Exec(String),
@@ -63,80 +65,25 @@ impl PipeReader {
     pub fn new(file: File) -> Self {
         Self {
             reader: BufReader::with_capacity(4096, file),
-            line: String::new(),
+            buf: [0; 1024],
         }
     }
 
     pub fn read_record(&mut self) -> Option<Result<Record, Error>> {
-        self.line.clear();
-        match self.reader.read_line(&mut self.line) {
-            Ok(n) => {
-                if n == 0 {
-                    return None;
-                }
-            }
-            Err(e) => return Some(Err(e.into())),
+        let mut length_buf = [0u8; 2];
+        if let Err(_) = self.reader.read_exact(&mut length_buf) {
+            return None;
+        }
+        let len = u16::from_le_bytes(length_buf) as usize;
+
+        let mut buf = &mut self.buf[..len];
+        if let Err(e) = self.reader.read_exact(&mut buf) {
+            return Some(Err(e.into()));
         }
 
-        let record = Self::parse_record(&self.line);
+        let record = bincode::deserialize(&buf).map_err(|_| Error::InvalidFormat);
 
         Some(record)
-    }
-
-    fn parse_record(line: &str) -> Result<Record, Error> {
-        let mut split = line.split_whitespace();
-
-        let cmd = split.next().ok_or(Error::InvalidFormat)?;
-
-        let op: u8 = cmd.parse().map_err(|_| Error::InvalidFormat)?;
-
-        match op {
-            OPERATION_VERSION => {
-                let version = split.next().ok_or(Error::InvalidFormat)?.parse()?;
-                Ok(Record::Version(version))
-            }
-            OPERATION_EXEC => {
-                _ = split.next().ok_or(Error::InvalidFormat)?;
-                let exec = split.next().ok_or(Error::InvalidFormat)?.to_string();
-                Ok(Record::Exec(exec))
-            }
-            OPERATION_PAGE_INFO => {
-                let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                let pages = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::PageInfo { size, pages })
-            }
-            OPERATION_TRACE => {
-                let ip = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                let idx = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::Trace {
-                    ip,
-                    parent_idx: idx,
-                })
-            }
-            OPERATION_ALLOC => {
-                let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                let idx = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                let ptr = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::Alloc {
-                    ptr,
-                    size,
-                    parent_idx: idx,
-                })
-            }
-            OPERATION_FREE => {
-                let ptr = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::Free { ptr })
-            }
-            OPERATION_DURATION => {
-                let duration = u128::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::Duration(duration))
-            }
-            OPERATION_RSS => {
-                let size = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)?;
-                Ok(Record::RSS(size))
-            }
-            _ => Err(Error::InvalidFormat),
-        }
     }
 }
 
@@ -152,57 +99,56 @@ impl PipeWriter {
     }
 
     pub fn write_version(&mut self, version: u16) {
-        _ = self
-            .writer
-            .write_fmt(format_args!("{} {}\n", OPERATION_VERSION, version));
+        let record = Record::Version(version);
+        self.write_record(record)
     }
 
     pub fn write_exec(&mut self, ex: &str) {
-        _ = self.writer.write_fmt(format_args!(
-            "{} {:x} {}\n",
-            OPERATION_EXEC,
-            ex.as_bytes().len(),
-            ex
-        ));
+        let record = Record::Exec(ex.to_string());
+        self.write_record(record)
     }
 
     pub fn write_page_info(&mut self, page_size: usize, phys_pages: usize) {
-        _ = self.writer.write_fmt(format_args!(
-            "{} {:x} {:x}\n",
-            OPERATION_PAGE_INFO, page_size, phys_pages
-        ));
+        let record = Record::PageInfo {
+            size: page_size,
+            pages: phys_pages,
+        };
+        self.write_record(record)
     }
 
     pub fn write_trace(&mut self, ip: usize, parent_idx: usize) {
-        _ = self.writer.write_fmt(format_args!(
-            "{} {:x} {:x}\n",
-            OPERATION_TRACE, ip, parent_idx
-        ));
+        let record = Record::Trace { ip, parent_idx };
+        self.write_record(record)
     }
 
     pub fn write_alloc(&mut self, size: usize, parent_idx: usize, ptr: usize) {
-        _ = self.writer.write_fmt(format_args!(
-            "{} {:x} {:x} {:x}\n",
-            OPERATION_ALLOC, size, parent_idx, ptr
-        ));
+        let record = Record::Alloc {
+            ptr,
+            size,
+            parent_idx,
+        };
+        self.write_record(record)
     }
 
     pub fn write_free(&mut self, ptr: usize) {
-        _ = self
-            .writer
-            .write_fmt(format_args!("{} {:x}\n", OPERATION_FREE, ptr));
+        let record = Record::Free { ptr };
+        self.write_record(record)
     }
 
     pub fn write_duration(&mut self, duration: u128) {
-        _ = self
-            .writer
-            .write_fmt(format_args!("{} {}\n", OPERATION_DURATION, duration));
+        let record = Record::Duration(duration);
+        self.write_record(record)
     }
 
     pub fn write_rss(&mut self, rss: usize) {
-        _ = self
-            .writer
-            .write_fmt(format_args!("{} {:x}\n", OPERATION_RSS, rss));
+        let record = Record::RSS(rss);
+        self.write_record(record)
+    }
+
+    fn write_record(&mut self, record: Record) {
+        let s = bincode::serialize(&record).unwrap();
+        _ = self.writer.write_all(&(s.len() as u16).to_le_bytes());
+        _ = self.writer.write_all(&s);
     }
 
     pub fn flush(&mut self) {
