@@ -1,3 +1,4 @@
+use crate::dylib::get_images;
 use crate::trace::Trace;
 use crate::trace_tree::TraceTree;
 use libc::{
@@ -34,6 +35,8 @@ impl Tracker {
         self.writer.write_exec(&sys_info.exec_path);
         self.writer
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
+
+        self.write_images();
     }
 
     pub fn on_malloc(&mut self, size: usize, ptr: usize) {
@@ -103,6 +106,13 @@ impl Tracker {
         }
 
         info.resident_size as usize
+    }
+
+    fn write_images(&mut self) {
+        for image in get_images() {
+            self.writer
+                .write_image(image.name, image.header_address, image.slide)
+        }
     }
 }
 

@@ -41,6 +41,11 @@ impl From<io::Error> for Error {
 pub enum Record {
     Version(u16),
     Exec(String),
+    Image {
+        name: String,
+        header: usize,
+        slide: isize,
+    },
     PageInfo {
         size: usize,
         pages: usize,
@@ -100,6 +105,15 @@ impl PipeWriter {
 
     pub fn write_version(&mut self, version: u16) {
         let record = Record::Version(version);
+        self.write_record(record)
+    }
+
+    pub fn write_image(&mut self, name: String, header: usize, slide: isize) {
+        let record = Record::Image {
+            name,
+            header,
+            slide,
+        };
         self.write_record(record)
     }
 

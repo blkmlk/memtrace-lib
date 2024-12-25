@@ -12,6 +12,11 @@ fn main() {
         match record {
             Record::Version(version) => println!("Version: {}", version),
             Record::Exec(exe) => println!("Exec: {}", exe),
+            Record::Image {
+                name,
+                header,
+                slide,
+            } => println!("Image: {} {} {}", name, header, slide),
             Record::PageInfo { size, pages } => println!("PageInfo: {} {}", size, pages),
             Record::Trace { ip, parent_idx } => println!("Trace: {} {}", ip, parent_idx),
             Record::Alloc {

@@ -1,3 +1,4 @@
+mod dylib;
 mod trace;
 mod trace_tree;
 mod tracker;
