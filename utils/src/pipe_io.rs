@@ -43,8 +43,8 @@ pub enum Record {
     Exec(String),
     Image {
         name: String,
-        header: usize,
-        slide: isize,
+        start_address: usize,
+        size: usize,
     },
     PageInfo {
         size: usize,
@@ -108,11 +108,11 @@ impl PipeWriter {
         self.write_record(record)
     }
 
-    pub fn write_image(&mut self, name: String, header: usize, slide: isize) {
+    pub fn write_image(&mut self, name: String, start_address: usize, size: usize) {
         let record = Record::Image {
             name,
-            header,
-            slide,
+            start_address,
+            size,
         };
         self.write_record(record)
     }

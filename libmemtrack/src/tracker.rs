@@ -111,7 +111,7 @@ impl Tracker {
     fn write_images(&mut self) {
         for image in get_images() {
             self.writer
-                .write_image(image.name, image.header_address, image.slide)
+                .write_image(image.name, image.start_address, image.size)
         }
     }
 }

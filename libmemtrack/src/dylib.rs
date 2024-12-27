@@ -9,10 +9,44 @@ extern "C" {
     fn _dyld_get_image_vmaddr_slide(index: u32) -> isize;
 }
 
+// Mach-O header structures
+#[repr(C)]
+struct MachHeader {
+    magic: u32,
+    cputype: i32,
+    cpusubtype: i32,
+    filetype: u32,
+    ncmds: u32,
+    sizeofcmds: u32,
+    flags: u32,
+    reserved: u32, // Only present in 64-bit headers
+}
+
+#[repr(C)]
+struct LoadCommand {
+    cmd: u32,
+    cmdsize: u32,
+}
+
+#[repr(C)]
+struct SegmentCommand64 {
+    cmd: u32,
+    cmdsize: u32,
+    segname: [u8; 16],
+    vmaddr: u64,
+    vmsize: u64,
+    fileoff: u64,
+    filesize: u64,
+    maxprot: i32,
+    initprot: i32,
+    nsects: u32,
+    flags: u32,
+}
+
 pub struct Image {
     pub name: String,
-    pub header_address: usize,
-    pub slide: isize,
+    pub start_address: usize,
+    pub size: usize,
 }
 
 pub fn get_images() -> Vec<Image> {
@@ -34,10 +68,26 @@ pub fn get_images() -> Vec<Image> {
             let header = _dyld_get_image_header(i);
             let slide = _dyld_get_image_vmaddr_slide(i);
 
+            let image_header = header as *const MachHeader;
+            let mut image_size = 0;
+            let mut load_command =
+                (header as *const u8).add(size_of::<MachHeader>()) as *const LoadCommand;
+
+            for _ in 0..(*image_header).ncmds {
+                if (*load_command).cmd == 0x19 {
+                    // LC_SEGMENT_64
+                    let segment = load_command as *const SegmentCommand64;
+                    image_size += (*segment).vmsize;
+                }
+
+                load_command = (load_command as *const u8).add((*load_command).cmdsize as usize)
+                    as *const LoadCommand;
+            }
+
             images.push(Image {
                 name: image_name,
-                header_address: header as usize,
-                slide,
+                start_address: header as usize - slide as usize,
+                size: image_size as usize,
             });
         }
 
