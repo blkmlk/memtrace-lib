@@ -2,6 +2,10 @@ use addr2line::Loader;
 use rangemap::RangeMap;
 use std::collections::HashMap;
 
+pub enum Error {
+    ModuleNotFound,
+}
+
 #[derive(Clone, Eq, PartialEq)]
 struct Module {
     pub start_address: u64,
@@ -22,8 +26,6 @@ impl Module {
         let location = loader.find_location(ip).ok()??;
         let symbol = loader.find_symbol(ip)?;
 
-        // let frame = loader.find_frames(ip).ok()?.next().ok()??;
-        // let function = frame.function?;
         let function_name = rustc_demangle::demangle(symbol).to_string();
 
         Some(Location {
@@ -54,14 +56,24 @@ impl Resolver {
         }
     }
 
-    pub fn add_module(&mut self, file_path: &str, start_address: u64, size: u64) {
+    pub fn add_module(
+        &mut self,
+        file_path: &str,
+        start_address: u64,
+        size: u64,
+    ) -> Result<(), Error> {
         let module = Module::new(file_path.to_string(), start_address, size);
 
-        let loader = Loader::new(file_path.to_string()).unwrap();
+        let Ok(loader) = Loader::new(file_path.to_string()) else {
+            return Err(Error::ModuleNotFound);
+        };
+
         self.loaders.insert(start_address, loader);
 
         self.modules
             .insert(module.start_address..module.end_address, module);
+
+        Ok(())
     }
 
     pub fn lookup(&mut self, ip: u64) -> Option<Location> {

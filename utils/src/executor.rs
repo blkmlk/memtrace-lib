@@ -5,7 +5,7 @@ use nix::unistd::mkfifo;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Child, Command, ExitStatus};
 
 #[derive(Debug)]
 pub enum Error {
@@ -41,7 +41,7 @@ pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
     ];
 
     let mut cmd = Command::new(program);
-    cmd.stdout(Stdio::null());
+    // cmd.stdout(Stdio::null());
     cmd.envs(envs);
     cmd.current_dir(cwd);
 

@@ -1,5 +1,6 @@
 use utils::executor::exec_cmd;
 use utils::pipe_io::Record;
+use utils::resolver::Resolver;
 
 fn main() {
     let mut res = exec_cmd(
@@ -7,7 +8,7 @@ fn main() {
         "/Users/id/devel/ALT/backtest/backtest",
     );
 
-    let mut global_slide = 0;
+    let mut resolver = Resolver::new();
 
     while let Some(result) = res.next() {
         let record = result.unwrap();
@@ -19,19 +20,15 @@ fn main() {
                 start_address,
                 size,
             } => {
-                println!("Image: {} {} {}", name, start_address, size)
+                println!("Image: {} 0x{:x} 0x{:x}", name, start_address, size);
+                _ = resolver.add_module(&name, start_address as u64, size as u64);
             }
             Record::PageInfo { size, pages } => println!("PageInfo: {} {}", size, pages),
             Record::Trace { ip, parent_idx } => {
-                let loader =
-                    addr2line::Loader::new("/Users/id/devel/Rust/memtrack-rs/.local/math_cmp")
-                        .unwrap();
-                let location = loader
-                    .find_location(ip as u64 - global_slide as u64)
-                    .unwrap();
-                if let Some(loc) = location {
-                    println!("Location: {:?} {:?} {:?}", loc.file, loc.line, loc.column);
-                }
+                println!("Trace: ip: 0x{:x}, parent_idx: {}", ip, parent_idx);
+                if let Some(location) = resolver.lookup(ip as u64) {
+                    println!("location: {:?}", location);
+                };
             }
             Record::Alloc {
                 ptr,

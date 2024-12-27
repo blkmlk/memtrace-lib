@@ -49,6 +49,10 @@ pub struct Image {
     pub size: usize,
 }
 
+pub fn get_image_slide() -> usize {
+    unsafe { _dyld_get_image_vmaddr_slide(1) as usize }
+}
+
 pub fn get_images() -> Vec<Image> {
     unsafe {
         let image_count = _dyld_image_count();
@@ -83,6 +87,7 @@ pub fn get_images() -> Vec<Image> {
                 load_command = (load_command as *const u8).add((*load_command).cmdsize as usize)
                     as *const LoadCommand;
             }
+            println!("header: 0x{:x} 0x{:x}", header as usize, slide as usize);
 
             images.push(Image {
                 name: image_name,
