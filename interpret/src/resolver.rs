@@ -38,8 +38,8 @@ impl Module {
 
 #[derive(Clone, Debug)]
 pub struct Location {
-    module_id: usize,
-    function_name: String,
+    pub module_id: usize,
+    pub function_name: String,
 }
 
 pub struct Resolver {

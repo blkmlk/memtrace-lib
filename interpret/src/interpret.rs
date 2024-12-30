@@ -1,4 +1,4 @@
-use crate::output::Output;
+use crate::output::{Frame, Output};
 use crate::resolver::Resolver;
 use crate::{executor, resolver};
 use indexmap::IndexSet;
@@ -16,11 +16,14 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("Resolver")]
     Resolver(#[from] resolver::Error),
+    #[error("Custom error: {}")]
+    Custom(String),
 }
 
 pub struct Interpreter {
     output: Output,
     strings: IndexSet<String>,
+    frames: IndexSet<u64>,
     resolver: Resolver,
 }
 
@@ -31,6 +34,7 @@ impl Interpreter {
         Ok(Self {
             output: Output::new(file),
             strings: IndexSet::new(),
+            frames: IndexSet::new(),
             resolver: Resolver::new(),
         })
     }
@@ -69,14 +73,46 @@ impl Interpreter {
                 )?;
             }
             Record::PageInfo { .. } => {}
-            Record::Trace { .. } => {}
-            Record::Alloc { .. } => {}
+            Record::Trace { ip, parent_idx } => {
+                let ip_id = self.add_frame(ip as u64)?;
+                self.output.write_trace(ip_id, parent_idx as u64)?;
+            }
+            Record::Alloc {
+                ptr,
+                size,
+                parent_idx,
+            } => {
+                self.output.write_alloc(size as u64, parent_idx)?;
+            }
             Record::Free { .. } => {}
             Record::Duration(_) => {}
             Record::RSS(_) => {}
         }
 
         Ok(())
+    }
+
+    fn add_frame(&mut self, ip: u64) -> Result<usize, Error> {
+        match self.frames.get_full(&ip) {
+            None => {
+                let (id, _) = self.frames.insert_full(ip);
+
+                let Some(location) = self.resolver.lookup(ip) else {
+                    return Err(Error::Custom("ip location not found".to_string()));
+                };
+
+                self.output.write_instruction(
+                    ip,
+                    location.module_id,
+                    &[Frame::Single {
+                        function_idx: self.write_string(&location.function_name)?,
+                    }],
+                )?;
+
+                Ok(id)
+            }
+            Some((id, _)) => Ok(*id),
+        }
     }
 
     fn write_string(&mut self, value: &str) -> Result<usize, Error> {

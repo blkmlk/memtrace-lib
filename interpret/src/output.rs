@@ -62,12 +62,12 @@ impl Output {
         writeln!(self.buffer)
     }
 
-    pub fn write_trace(&mut self, ip_id: u64, parent_idx: u64) -> std::io::Result<()> {
+    pub fn write_trace(&mut self, ip_id: usize, parent_idx: u64) -> std::io::Result<()> {
         writeln!(self.buffer, "t {:x} {:x}", ip_id, parent_idx)
     }
 
     pub fn write_alloc(&mut self, size: u64, idx: usize) -> std::io::Result<()> {
-        writeln!(self.buffer, "+ {:x} {:x}", size, idx)
+        writeln!(self.buffer, "a {:x} {:x}", size, idx)
     }
 
     pub fn write_free(&mut self, idx: usize) -> std::io::Result<()> {
