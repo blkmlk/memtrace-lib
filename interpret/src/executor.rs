@@ -1,11 +1,11 @@
-use crate::pipe_io;
-use crate::pipe_io::{PipeReader, Record};
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
 use std::process::{Child, Command, ExitStatus};
+use utils::pipe_io;
+use utils::pipe_io::{PipeReader, Record};
 
 #[derive(Debug)]
 pub enum Error {

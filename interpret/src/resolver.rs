@@ -2,20 +2,23 @@ use addr2line::Loader;
 use rangemap::RangeMap;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub enum Error {
     ModuleNotFound,
 }
 
 #[derive(Clone, Eq, PartialEq)]
 struct Module {
+    id: usize,
     pub start_address: u64,
     pub end_address: u64,
     path: String,
 }
 
 impl Module {
-    pub fn new(path: String, start_address: u64, size: u64) -> Self {
+    pub fn new(id: usize, path: String, start_address: u64, size: u64) -> Self {
         Self {
+            id,
             path,
             start_address,
             end_address: start_address + size,
@@ -26,12 +29,16 @@ impl Module {
         let symbol = loader.find_symbol(ip)?;
         let function_name = rustc_demangle::demangle(symbol).to_string();
 
-        Some(Location { function_name })
+        Some(Location {
+            module_id: self.id,
+            function_name,
+        })
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Location {
+    module_id: usize,
     function_name: String,
 }
 
@@ -52,11 +59,12 @@ impl Resolver {
 
     pub fn add_module(
         &mut self,
+        id: usize,
         file_path: &str,
         start_address: u64,
         size: u64,
     ) -> Result<(), Error> {
-        let module = Module::new(file_path.to_string(), start_address, size);
+        let module = Module::new(id, file_path.to_string(), start_address, size);
 
         let Ok(loader) = Loader::new(file_path.to_string()) else {
             return Err(Error::ModuleNotFound);
@@ -105,7 +113,7 @@ mod tests {
         let addr = unsafe { _dyld_get_image_header(0) } as u64 - slide;
 
         let mut resolver = Resolver::new();
-        resolver.add_module(&exe, addr, 0x1000000);
+        resolver.add_module(0, &exe, addr, 0x1000000);
 
         let ip = boo as u64 - slide;
 
