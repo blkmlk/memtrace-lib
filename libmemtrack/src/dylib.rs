@@ -87,7 +87,6 @@ pub fn get_images() -> Vec<Image> {
                 load_command = (load_command as *const u8).add((*load_command).cmdsize as usize)
                     as *const LoadCommand;
             }
-            println!("header: 0x{:x} 0x{:x}", header as usize, slide as usize);
 
             images.push(Image {
                 name: image_name,

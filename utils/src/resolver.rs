@@ -23,22 +23,16 @@ impl Module {
     }
 
     pub fn lookup(&self, ip: u64, loader: &Loader) -> Option<Location> {
-        let location = loader.find_location(ip).ok()??;
         let symbol = loader.find_symbol(ip)?;
-
         let function_name = rustc_demangle::demangle(symbol).to_string();
 
-        Some(Location {
-            function_name,
-            file_path: format!("{}:{}", location.file?, location.line?),
-        })
+        Some(Location { function_name })
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Location {
     function_name: String,
-    file_path: String,
 }
 
 pub struct Resolver {

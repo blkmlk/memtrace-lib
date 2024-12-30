@@ -20,14 +20,20 @@ fn main() {
                 start_address,
                 size,
             } => {
-                println!("Image: {} 0x{:x} 0x{:x}", name, start_address, size);
+                println!(
+                    "Image: {} 0x{:x} 0x{:x}",
+                    name,
+                    start_address,
+                    start_address * 2
+                );
                 _ = resolver.add_module(&name, start_address as u64, size as u64);
             }
             Record::PageInfo { size, pages } => println!("PageInfo: {} {}", size, pages),
             Record::Trace { ip, parent_idx } => {
-                println!("Trace: ip: 0x{:x}, parent_idx: {}", ip, parent_idx);
                 if let Some(location) = resolver.lookup(ip as u64) {
-                    println!("location: {:?}", location);
+                    println!("Location: (0x{:x}) {:?}", ip, location);
+                } else {
+                    println!("Trace: ip: 0x{:x}, parent_idx: {}", ip, parent_idx);
                 };
             }
             Record::Alloc {
