@@ -60,9 +60,9 @@ impl Interpreter {
                 start_address,
                 size,
             } => {
-                let id = self.write_string(&name)?;
+                let module_id = self.write_string(&name)?;
                 self.resolver.add_module(
-                    id,
+                    module_id,
                     &name,
                     start_address as u64,
                     start_address as u64 + size as u64,
@@ -80,9 +80,14 @@ impl Interpreter {
     }
 
     fn write_string(&mut self, value: &str) -> Result<usize, Error> {
-        let (id, _) = self.strings.insert_full(value.to_string());
-        self.output.write_string(value)?;
+        match self.strings.get_full(value) {
+            None => {
+                let (id, _) = self.strings.insert_full(value.to_string());
+                self.output.write_string(value)?;
 
-        Ok(id)
+                Ok(id)
+            }
+            Some((id, _)) => Ok(*id),
+        }
     }
 }
