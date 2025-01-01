@@ -104,7 +104,7 @@ impl Interpreter {
                 self.output.write_version(version, 3)?;
             }
             Record::Exec(cmd) => {
-                self.write_string(&cmd)?;
+                self.output.write_exec(&cmd)?;
             }
             Record::Image {
                 name,
@@ -119,7 +119,9 @@ impl Interpreter {
                     start_address as u64 + size as u64,
                 );
             }
-            Record::PageInfo { .. } => {}
+            Record::PageInfo { size, pages } => {
+                self.output.write_page_info(size, pages as u64)?;
+            }
             Record::Trace { ip, parent_idx } => {
                 let ip_id = self.add_frame(ip as u64)?;
                 self.output.write_trace(ip_id, parent_idx as u64)?;

@@ -27,6 +27,10 @@ impl Output {
         writeln!(self.buffer, "v {:x} {:x}", version, file_version)
     }
 
+    pub fn write_page_info(&mut self, page_size: usize, pages: u64) -> std::io::Result<()> {
+        writeln!(self.buffer, "I {:x} {:x}", page_size, pages)
+    }
+
     pub fn write_exec(&mut self, command: &str) -> std::io::Result<()> {
         writeln!(self.buffer, "X {}", command)
     }
