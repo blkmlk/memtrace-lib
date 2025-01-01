@@ -185,9 +185,9 @@ impl Interpreter {
                     &[Frame::Single { function_idx }],
                 )?;
 
-                Ok(id)
+                Ok(id + 1)
             }
-            Some((id, _)) => Ok(id),
+            Some((id, _)) => Ok(id + 1),
         }
     }
 
@@ -254,9 +254,9 @@ impl Interpreter {
                 let (id, _) = self.strings.insert_full(value.to_string());
                 self.output.write_string(value)?;
 
-                Ok(id)
+                Ok(id + 1)
             }
-            Some((id, _)) => Ok(id),
+            Some((id, _)) => Ok(id + 1),
         }
     }
 

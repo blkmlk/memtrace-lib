@@ -49,14 +49,14 @@ impl Output {
         write!(self.buffer, "i {:x} {:x}", ip, module_idx)?;
         for frame in frames {
             match frame {
-                Frame::Single { function_idx } => write!(self.buffer, " {}", function_idx)?,
+                Frame::Single { function_idx } => write!(self.buffer, " {:x}", function_idx)?,
                 Frame::Multiple {
                     function_idx,
                     file_idx,
                     line_number,
                 } => write!(
                     self.buffer,
-                    " {} {} {}",
+                    " {:x} {:x} {:x}",
                     function_idx, file_idx, line_number
                 )?,
             }
