@@ -70,7 +70,8 @@ impl Interpreter {
     pub fn new(out_filepath: impl AsRef<Path>) -> io::Result<Self> {
         let file = OpenOptions::new()
             .write(true)
-            .create_new(true)
+            .truncate(true)
+            .create(true)
             .open(out_filepath)?;
 
         Ok(Self {
@@ -111,12 +112,12 @@ impl Interpreter {
                 size,
             } => {
                 let module_id = self.write_string(&name)?;
-                self.resolver.add_module(
+                _ = self.resolver.add_module(
                     module_id,
                     &name,
                     start_address as u64,
                     start_address as u64 + size as u64,
-                )?;
+                );
             }
             Record::PageInfo { .. } => {}
             Record::Trace { ip, parent_idx } => {
