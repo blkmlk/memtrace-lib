@@ -88,4 +88,12 @@ impl Output {
     pub fn write_rss(&mut self, rss: usize) -> std::io::Result<()> {
         writeln!(self.buffer, "R {:x}", rss)
     }
+
+    pub fn write(&mut self, value: &str) -> std::io::Result<()> {
+        writeln!(self.buffer, "{}", value)
+    }
+
+    pub fn write_comment(&mut self, comment: &str) -> std::io::Result<()> {
+        writeln!(self.buffer, "# {}", comment)
+    }
 }

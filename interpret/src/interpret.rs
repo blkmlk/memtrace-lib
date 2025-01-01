@@ -95,6 +95,8 @@ impl Interpreter {
             self.handle_record(record)?;
         }
 
+        self.write_comments()?;
+
         Ok(())
     }
 
@@ -256,5 +258,16 @@ impl Interpreter {
             }
             Some((id, _)) => Ok(id),
         }
+    }
+
+    fn write_comments(&mut self) -> Result<(), Error> {
+        self.output.write("")?;
+
+        self.output
+            .write_comment(&format!("strings: {}", self.strings.len()))?;
+        self.output
+            .write_comment(&format!("ips: {}", self.allocation_info.len()))?;
+
+        Ok(())
     }
 }
