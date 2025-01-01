@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::time::Duration;
 
 pub struct Output {
     buffer: BufWriter<File>,
@@ -78,8 +77,8 @@ impl Output {
         writeln!(self.buffer, "- {:x}", idx)
     }
 
-    pub fn write_duration(&mut self, duration: Duration) -> std::io::Result<()> {
-        writeln!(self.buffer, "c {:x}", duration.as_millis())
+    pub fn write_duration(&mut self, duration: u128) -> std::io::Result<()> {
+        writeln!(self.buffer, "c {:x}", duration)
     }
 
     pub fn write_rss(&mut self, rss: usize) -> std::io::Result<()> {

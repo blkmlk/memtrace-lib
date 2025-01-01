@@ -24,6 +24,7 @@ pub enum Error {
 struct MemStats {
     allocations: u64,
     leaked_allocations: u64,
+    tmp_allocations: u64,
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -127,15 +128,33 @@ impl Interpreter {
                 self.stats.allocations += 1;
                 self.stats.leaked_allocations += 1;
 
-                let idx = self.add_alloc(size as u64, parent_idx as u64);
+                let idx = self.add_alloc(size as u64, parent_idx as u64)?;
 
                 self.add_pointer(ptr as u64, idx as u64);
                 self.last_ptr = ptr;
                 self.output.write_alloc(idx)?;
             }
-            Record::Free { .. } => {}
-            Record::Duration(_) => {}
-            Record::RSS(_) => {}
+            Record::Free { ptr } => {
+                let temporary = self.last_ptr == ptr;
+                self.last_ptr = 0;
+
+                let Some(allocation_idx) = self.take_pointer(ptr as u64) else {
+                    return Ok(());
+                };
+
+                self.output.write_free(allocation_idx)?;
+
+                if temporary {
+                    self.stats.tmp_allocations += 1;
+                }
+                self.stats.leaked_allocations -= 1;
+            }
+            Record::Duration(duration) => {
+                self.output.write_duration(duration)?;
+            }
+            Record::RSS(rss) => {
+                self.output.write_rss(rss)?;
+            }
         }
 
         Ok(())
@@ -164,7 +183,7 @@ impl Interpreter {
         }
     }
 
-    fn add_alloc(&mut self, size: u64, parent_idx: u64) -> usize {
+    fn add_alloc(&mut self, size: u64, parent_idx: u64) -> Result<usize, Error> {
         let info = AllocationInfo {
             size,
             trace_idx: parent_idx,
@@ -176,9 +195,9 @@ impl Interpreter {
 
                 self.output.write_trace_alloc(size, parent_idx as usize)?;
 
-                idx
+                Ok(idx)
             }
-            Some((idx, _)) => idx,
+            Some((idx, _)) => Ok(idx),
         }
     }
 
@@ -187,15 +206,31 @@ impl Interpreter {
 
         let indices = self.pointers.entry(pointer.big).or_default();
 
-        match indices.small_ptr_parts.iter().find(pointer.small) {
+        match indices.small_ptr_parts.iter().position(pointer.small) {
             None => {
                 indices.small_ptr_parts.push(pointer.small);
                 indices.allocation_indices.push(allocation_idx as usize);
             }
             Some(idx) => {
-                indices.allocation_indices[*idx] = allocation_idx as usize;
+                indices.allocation_indices[idx] = allocation_idx as usize;
             }
         }
+    }
+
+    fn take_pointer(&mut self, ptr: u64) -> Option<usize> {
+        let pointer = SplitPointer::new(ptr);
+        let indices = self.pointers.get_mut(&pointer.big)?;
+
+        let idx = indices.small_ptr_parts.iter().position(pointer.small)?;
+        let allocation_idx = indices.allocation_indices[idx];
+
+        indices.small_ptr_parts.swap_remove(idx);
+        indices.allocation_indices.swap_remove(idx);
+        if indices.allocation_indices.is_empty() {
+            self.pointers.swap_remove(&pointer.big);
+        }
+
+        Some(allocation_idx)
     }
 
     fn write_string(&mut self, value: &str) -> Result<usize, Error> {
