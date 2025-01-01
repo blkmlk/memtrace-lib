@@ -1,4 +1,4 @@
 mod executor;
-mod interpret;
+pub mod interpret;
 mod output;
 mod resolver;

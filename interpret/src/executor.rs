@@ -4,26 +4,18 @@ use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
 use std::process::{Child, Command, ExitStatus};
+use thiserror::Error;
 use utils::pipe_io;
 use utils::pipe_io::{PipeReader, Record};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to execute command")]
     CmdFailed(ExitStatus),
-    CmdError(io::Error),
-    PipeError(pipe_io::Error),
-}
-
-impl From<pipe_io::Error> for Error {
-    fn from(value: pipe_io::Error) -> Self {
-        Error::PipeError(value)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(value: io::Error) -> Self {
-        Error::CmdError(value)
-    }
+    #[error("IO error")]
+    CmdError(#[from] io::Error),
+    #[error("pipe error")]
+    PipeError(#[from] pipe_io::Error),
 }
 
 pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {

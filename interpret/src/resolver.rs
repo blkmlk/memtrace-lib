@@ -1,9 +1,11 @@
 use addr2line::Loader;
 use rangemap::RangeMap;
 use std::collections::HashMap;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("module not found")]
     ModuleNotFound,
 }
 

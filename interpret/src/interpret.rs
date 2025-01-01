@@ -16,7 +16,7 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("Resolver")]
     Resolver(#[from] resolver::Error),
-    #[error("Custom error: {}")]
+    #[error("Custom error: {0}")]
     Custom(String),
 }
 
@@ -68,7 +68,10 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new(out_filepath: impl AsRef<Path>) -> io::Result<Self> {
-        let file = OpenOptions::new().write(true).open(out_filepath)?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(out_filepath)?;
 
         Ok(Self {
             output: Output::new(file),
@@ -169,17 +172,17 @@ impl Interpreter {
                     return Err(Error::Custom("ip location not found".to_string()));
                 };
 
+                let function_idx = self.write_string(&location.function_name)?;
+
                 self.output.write_instruction(
                     ip,
                     location.module_id,
-                    &[Frame::Single {
-                        function_idx: self.write_string(&location.function_name)?,
-                    }],
+                    &[Frame::Single { function_idx }],
                 )?;
 
                 Ok(id)
             }
-            Some((id, _)) => Ok(*id),
+            Some((id, _)) => Ok(id),
         }
     }
 
@@ -206,7 +209,11 @@ impl Interpreter {
 
         let indices = self.pointers.entry(pointer.big).or_default();
 
-        match indices.small_ptr_parts.iter().position(pointer.small) {
+        match indices
+            .small_ptr_parts
+            .iter()
+            .position(|&i| i == pointer.small)
+        {
             None => {
                 indices.small_ptr_parts.push(pointer.small);
                 indices.allocation_indices.push(allocation_idx as usize);
@@ -221,7 +228,10 @@ impl Interpreter {
         let pointer = SplitPointer::new(ptr);
         let indices = self.pointers.get_mut(&pointer.big)?;
 
-        let idx = indices.small_ptr_parts.iter().position(pointer.small)?;
+        let idx = indices
+            .small_ptr_parts
+            .iter()
+            .position(|&i| i == pointer.small)?;
         let allocation_idx = indices.allocation_indices[idx];
 
         indices.small_ptr_parts.swap_remove(idx);
@@ -241,7 +251,7 @@ impl Interpreter {
 
                 Ok(id)
             }
-            Some((id, _)) => Ok(*id),
+            Some((id, _)) => Ok(id),
         }
     }
 }

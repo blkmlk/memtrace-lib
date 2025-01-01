@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::num::ParseIntError;
+use thiserror::Error;
 
 const OPERATION_VERSION: u8 = b'v';
 const OPERATION_EXEC: u8 = b'x';
@@ -19,21 +20,17 @@ pub struct PipeReader {
     buf: [u8; 1024],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("invalid format")]
     InvalidFormat,
-    IOError(io::Error),
+    #[error("io error")]
+    IOError(#[from] io::Error),
 }
 
 impl From<ParseIntError> for Error {
     fn from(_: ParseIntError) -> Self {
         Self::InvalidFormat
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(value: io::Error) -> Self {
-        Error::IOError(value)
     }
 }
 

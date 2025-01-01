@@ -326,4 +326,5 @@ dependencies = [
  "bincode",
  "byteorder",
  "serde",
+ "thiserror",
 ]
