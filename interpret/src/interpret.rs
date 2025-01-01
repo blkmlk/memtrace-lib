@@ -266,7 +266,7 @@ impl Interpreter {
         self.output
             .write_comment(&format!("strings: {}", self.strings.len()))?;
         self.output
-            .write_comment(&format!("ips: {}", self.allocation_info.len()))?;
+            .write_comment(&format!("ips: {}", self.frames.len()))?;
 
         Ok(())
     }
