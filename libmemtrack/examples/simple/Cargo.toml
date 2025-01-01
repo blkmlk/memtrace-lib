@@ -7,3 +7,4 @@ edition = "2021"
 
 [profile.dev]
 debug = true
+opt-level = 0

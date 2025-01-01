@@ -39,7 +39,6 @@ impl Tracker {
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
 
         self.slide = get_image_slide();
-        println!("Image slide: 0x{:x}", self.slide);
 
         self.write_images();
     }
