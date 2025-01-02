@@ -7,9 +7,9 @@ extern "C" {
 const MAX_SIZE: usize = 64;
 
 #[cfg(debug_assertions)]
-const BACKTRACE_TAIL: usize = 4;
+const LIB_OFFSET: usize = 4;
 #[cfg(not(debug_assertions))]
-const BACKTRACE_TAIL: usize = 1;
+const LIB_OFFSET: usize = 1;
 
 pub struct Trace {
     stack: [usize; MAX_SIZE],
@@ -29,7 +29,7 @@ impl Trace {
     }
 
     pub fn as_slice(&self) -> &[usize] {
-        &self.stack[1..self.len]
+        &self.stack[LIB_OFFSET..self.len]
     }
 
     fn init(&mut self) {
@@ -38,7 +38,7 @@ impl Trace {
                 self.stack.as_mut_ptr() as *mut *mut c_void,
                 MAX_SIZE as libc::c_int,
             );
-            self.len = n as usize - BACKTRACE_TAIL
+            self.len = n as usize - 1
         }
     }
 }
