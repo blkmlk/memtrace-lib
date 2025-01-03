@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::BufRead;
+use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -79,6 +80,10 @@ struct AccumulatedData {
     allocations: Vec<Allocation>,
     allocation_infos: Vec<AllocationInfo>,
     total: AllocationData,
+    duration: Duration,
+    peak_rss: u64,
+    page_size: u64,
+    pages: u64,
 }
 
 impl AccumulatedData {
@@ -91,6 +96,10 @@ impl AccumulatedData {
             allocations: Default::default(),
             allocation_infos: Default::default(),
             total: AllocationData::default(),
+            duration: Duration::default(),
+            peak_rss: 0,
+            page_size: 0,
+            pages: 0,
         }
     }
 }
@@ -239,6 +248,27 @@ impl Parser {
                     allocation.data.temporary += 1;
                 }
             }
+            "c" => {
+                let timestamp = u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
+                    .map_err(|_| Error::InvalidFormat)?;
+                self.data.duration = Duration::from_millis(timestamp);
+            }
+            "R" => {
+                let rss = u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
+                    .map_err(|_| Error::InvalidFormat)?;
+                if rss > self.data.peak_rss {
+                    self.data.peak_rss = rss;
+                }
+            }
+            "I" => {
+                self.data.page_size =
+                    u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
+                        .map_err(|_| Error::InvalidFormat)?;
+                self.data.pages =
+                    u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
+                        .map_err(|_| Error::InvalidFormat)?;
+            }
+            "#" => {}
             _ => {}
         }
         Ok(())
@@ -292,6 +322,6 @@ mod tests {
         let file = "/tmp/pipe.out";
         let data = read_trace_file(file).unwrap();
 
-        println!("{:?}", data);
+        println!("{:#?}", data);
     }
 }
