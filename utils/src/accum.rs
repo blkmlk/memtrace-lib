@@ -249,7 +249,9 @@ impl Parser {
                     u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
             }
-            "#" => {}
+            "#" => {
+                // comment
+            }
             _ => {}
         }
         Ok(())
