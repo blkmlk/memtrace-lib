@@ -48,6 +48,7 @@ struct AllocationData {
     temporary: u64,
     leaked: u64,
     peak: u64,
+    size: u64,
 }
 
 #[derive(Debug)]
@@ -57,18 +58,14 @@ struct Allocation {
 }
 
 impl Allocation {
-    pub fn new(trace_idx: u64) -> Self {
-        Self {
-            trace_idx,
-            data: AllocationData::default(),
-        }
-    }
-}
+    pub fn new(trace_idx: u64, size: u64) -> Self {
+        let mut data = AllocationData {
+            size,
+            ..Default::default()
+        };
 
-#[derive(Debug)]
-struct AllocationInfo {
-    size: u64,
-    allocation_idx: u64,
+        Self { trace_idx, data }
+    }
 }
 
 #[derive(Debug)]
@@ -78,7 +75,6 @@ struct AccumulatedData {
     instruction_pointers: Vec<InstructionPointer>,
     allocation_indices: IndexMap<u64, u64>,
     allocations: Vec<Allocation>,
-    allocation_infos: Vec<AllocationInfo>,
     total: AllocationData,
     duration: Duration,
     peak_rss: u64,
@@ -94,7 +90,6 @@ impl AccumulatedData {
             instruction_pointers: Vec::with_capacity(16384),
             allocation_indices: Default::default(),
             allocations: Default::default(),
-            allocation_infos: Default::default(),
             total: AllocationData::default(),
             duration: Duration::default(),
             peak_rss: 0,
@@ -182,23 +177,12 @@ impl Parser {
                 let trace_idx = u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                     .map_err(|_| Error::InvalidFormat)?;
 
-                let allocation_idx = self.map_allocation_idx(trace_idx);
-                self.data.allocation_infos.push(AllocationInfo {
-                    size,
-                    allocation_idx,
-                })
+                self.add_allocation(trace_idx, size);
             }
             "+" => {
                 let allocation_idx =
                     u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
-
-                let info = self
-                    .data
-                    .allocation_infos
-                    .get(allocation_idx as usize)
-                    .ok_or_else(|| Error::Internal("info not found".into()))?;
-                self.last_ptr = allocation_idx;
 
                 let allocation: &mut Allocation = self
                     .data
@@ -206,10 +190,12 @@ impl Parser {
                     .get_mut(allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("allocation not found".into()))?;
 
-                allocation.data.leaked += info.size;
+                self.last_ptr = allocation_idx;
+
+                allocation.data.leaked += allocation.data.size;
                 allocation.data.allocations += 1;
 
-                self.data.total.leaked += info.size;
+                self.data.total.leaked += allocation.data.size;
                 self.data.total.allocations += 1;
                 if self.data.total.leaked > self.data.total.peak {
                     self.data.total.peak = self.data.total.leaked;
@@ -223,12 +209,13 @@ impl Parser {
                     u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
 
-                let info = self
+                let allocation = self
                     .data
-                    .allocation_infos
+                    .allocations
                     .get_mut(allocation_idx as usize)
-                    .ok_or_else(|| Error::Internal("info not found".into()))?;
-                self.data.total.leaked -= info.size;
+                    .ok_or_else(|| Error::Internal("allocation not found".into()))?;
+
+                self.data.total.leaked -= allocation.data.size;
 
                 let temporary = self.last_ptr == allocation_idx;
                 self.last_ptr = 0;
@@ -237,13 +224,7 @@ impl Parser {
                     self.data.total.temporary += 1;
                 }
 
-                let allocation = self
-                    .data
-                    .allocations
-                    .get_mut(allocation_idx as usize)
-                    .ok_or_else(|| Error::Internal("allocation not found".into()))?;
-
-                allocation.data.leaked -= info.size;
+                allocation.data.leaked -= allocation.data.size;
                 if temporary {
                     allocation.data.temporary += 1;
                 }
@@ -274,16 +255,17 @@ impl Parser {
         Ok(())
     }
 
-    fn map_allocation_idx(&mut self, trace_idx: u64) -> u64 {
+    fn add_allocation(&mut self, trace_idx: u64, size: u64) {
         match self.data.allocation_indices.entry(trace_idx) {
-            Entry::Occupied(e) => *e.get(),
+            Entry::Occupied(e) => {
+                let idx = *e.get();
+                self.data.allocations[idx as usize].data.size += size;
+            }
             Entry::Vacant(e) => {
                 let idx = self.data.allocations.len() as u64;
                 e.insert(idx);
-                let allocation = Allocation::new(trace_idx);
+                let allocation = Allocation::new(trace_idx, size);
                 self.data.allocations.push(allocation);
-
-                idx
             }
         }
     }
