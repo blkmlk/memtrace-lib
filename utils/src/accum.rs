@@ -145,7 +145,7 @@ impl Parser {
                     usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
 
-                let frame = self.parse_frame(&mut split)?.ok_or(Error::InvalidFormat)?;
+                let frame = Self::parse_frame(&mut split)?.ok_or(Error::InvalidFormat)?;
                 let mut inlined = Vec::new();
 
                 while let Some(frame) = Self::parse_frame(&mut split)? {
@@ -179,14 +179,14 @@ impl Parser {
                 let info = self
                     .data
                     .allocation_infos
-                    .get(allocation_idx)
+                    .get(allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("info not found".into()))?;
                 self.last_ptr = allocation_idx;
 
                 let allocation: &mut Allocation = self
                     .data
                     .allocations
-                    .get_mut(allocation_idx)
+                    .get_mut(allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("allocation not found".into()))?;
 
                 allocation.data.leaked += info.size;
@@ -209,7 +209,7 @@ impl Parser {
                 let info = self
                     .data
                     .allocation_infos
-                    .get_mut(allocation_idx)
+                    .get_mut(allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("info not found".into()))?;
                 self.data.total.leaked -= info.size;
 
@@ -223,7 +223,7 @@ impl Parser {
                 let allocation = self
                     .data
                     .allocations
-                    .get_mut(allocation_idx)
+                    .get_mut(allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("allocation not found".into()))?;
 
                 allocation.data.leaked -= info.size;
