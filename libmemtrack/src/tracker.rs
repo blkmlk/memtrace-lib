@@ -1,3 +1,4 @@
+use crate::dylib::{get_image_slide, get_images};
 use crate::trace::Trace;
 use crate::trace_tree::TraceTree;
 use libc::{
@@ -7,12 +8,13 @@ use libc::{
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::Instant;
-use utils::pipe_writer::PipeWriter;
+use utils::pipe_io::PipeWriter;
 
 pub struct Tracker {
     writer: PipeWriter,
     trace_tree: TraceTree,
     started_at: Instant,
+    slide: usize,
 }
 
 impl Tracker {
@@ -23,6 +25,7 @@ impl Tracker {
             writer: PipeWriter::new(file),
             trace_tree: TraceTree::new(),
             started_at: Instant::now(),
+            slide: 0,
         }
     }
 
@@ -34,14 +37,19 @@ impl Tracker {
         self.writer.write_exec(&sys_info.exec_path);
         self.writer
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
+
+        self.slide = get_image_slide();
+
+        self.write_images();
     }
 
     pub fn on_malloc(&mut self, size: usize, ptr: usize) {
         let trace = Trace::new();
 
-        let idx = self
-            .trace_tree
-            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
+        let idx = self.trace_tree.index(trace, |ip, parent| {
+            let ip = ip - self.slide;
+            self.writer.write_trace(ip, parent)
+        });
 
         self.writer.write_alloc(size, idx, ptr);
     }
@@ -53,9 +61,10 @@ impl Tracker {
             self.on_free(ptr_in);
         }
 
-        let idx = self
-            .trace_tree
-            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
+        let idx = self.trace_tree.index(trace, |ip, parent| {
+            let ip = ip - self.slide;
+            self.writer.write_trace(ip, parent)
+        });
 
         self.writer.write_alloc(size, idx, ptr_out);
     }
@@ -103,6 +112,13 @@ impl Tracker {
         }
 
         info.resident_size as usize
+    }
+
+    fn write_images(&mut self) {
+        for image in get_images() {
+            self.writer
+                .write_image(image.name, image.start_address, image.size)
+        }
     }
 }
 

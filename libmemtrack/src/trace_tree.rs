@@ -56,7 +56,7 @@ impl TraceTree {
     }
 
     pub fn index(&mut self, trace: Trace, mut on_new: impl FnMut(usize, usize)) -> usize {
-        let it = trace.as_slice().iter().copied();
+        let it = trace.as_slice().iter().rev().copied();
         let idx = self.root.index(it, &mut on_new, &mut self.last_index);
 
         idx

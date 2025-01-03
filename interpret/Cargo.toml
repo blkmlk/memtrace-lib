@@ -1,0 +1,15 @@
+[package]
+name = "interpret"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nix = { version = "0.29", features = ["fs"] }
+thiserror = "2.0"
+indexmap = "2.7"
+addr2line = "0.24"
+rangemap = "1.5"
+rustc-demangle = "0.1"
+
+[dependencies.utils]
+path = "../utils"
