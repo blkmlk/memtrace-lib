@@ -1,6 +1,6 @@
 use indexmap::map::Entry;
 use indexmap::IndexMap;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::BufRead;
 use thiserror::Error;
@@ -95,6 +95,12 @@ impl AccumulatedData {
     }
 }
 
+pub fn read_trace_file(file_path: impl AsRef<std::path::Path>) -> Result<AccumulatedData, Error> {
+    let file = OpenOptions::new().read(true).open(file_path)?;
+
+    Parser::new().parse_file(file)
+}
+
 pub struct Parser {
     data: AccumulatedData,
     last_ptr: u64,
@@ -108,7 +114,9 @@ impl Parser {
         }
     }
 
-    fn parse_file(mut self, mut reader: impl BufRead) -> Result<AccumulatedData, Error> {
+    fn parse_file(mut self, file: File) -> Result<AccumulatedData, Error> {
+        let reader = io::BufReader::new(file);
+
         for line in reader.lines() {
             self.parse_line(&line?)?
         }
@@ -274,14 +282,6 @@ impl Parser {
             line_number,
         }))
     }
-}
-
-pub fn read_trace_file(file_path: impl AsRef<std::path::Path>) -> Result<AccumulatedData, Error> {
-    let file = OpenOptions::new().read(true).open(file_path)?;
-
-    let buff = io::BufReader::new(file);
-
-    Parser::new().parse_file(buff)
 }
 
 #[cfg(test)]
