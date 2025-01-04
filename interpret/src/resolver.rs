@@ -51,6 +51,17 @@ impl Module {
             locations.push(location);
         }
 
+        if locations.is_empty() {
+            let symbol = loader.find_symbol(ip).unwrap();
+            let function_name = rustc_demangle::demangle(symbol).to_string();
+
+            locations.push(Location {
+                function_name,
+                file_name: None,
+                line_number: None,
+            })
+        }
+
         Some(LookupResult {
             module_id: self.id,
             locations,
