@@ -199,9 +199,6 @@ impl Parser {
                 self.data.total.allocations += 1;
                 if self.data.total.leaked > self.data.total.peak {
                     self.data.total.peak = self.data.total.leaked;
-                    // todo: add timestamp
-
-                    // todo: go over all allocations
                 }
             }
             "-" => {
