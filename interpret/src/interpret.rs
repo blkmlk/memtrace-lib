@@ -173,17 +173,38 @@ impl Interpreter {
             None => {
                 let (id, _) = self.frames.insert_full(ip);
 
-                let Some(location) = self.resolver.lookup(ip) else {
-                    return Err(Error::Custom("ip location not found".to_string()));
+                let Some(result) = self.resolver.lookup(ip) else {
+                    return Err(Error::Custom("ip locations not found".to_string()));
                 };
 
-                let function_idx = self.write_string(&location.function_name)?;
+                let mut frames = Vec::with_capacity(result.locations.len());
 
-                self.output.write_instruction(
-                    ip,
-                    location.module_id,
-                    &[Frame::Single { function_idx }],
-                )?;
+                for location in result.locations {
+                    let function_idx = self.write_string(&location.function_name)?;
+
+                    let frame = if location.file_name.is_some() {
+                        let file_idx = self.write_string(
+                            &location
+                                .file_name
+                                .ok_or_else(|| Error::Custom("empty file name".into()))?,
+                        )?;
+
+                        Frame::Multiple {
+                            function_idx,
+                            file_idx,
+                            line_number: location
+                                .line_number
+                                .ok_or_else(|| Error::Custom("empty line number".into()))?,
+                        }
+                    } else {
+                        Frame::Single { function_idx }
+                    };
+
+                    frames.push(frame);
+                }
+
+                self.output
+                    .write_instruction(ip, result.module_id, &frames)?;
 
                 Ok(id + 1)
             }

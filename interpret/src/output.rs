@@ -12,7 +12,7 @@ pub enum Frame {
     Multiple {
         function_idx: usize,
         file_idx: usize,
-        line_number: u16,
+        line_number: u32,
     },
 }
 
