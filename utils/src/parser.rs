@@ -1,8 +1,9 @@
 use indexmap::map::Entry;
 use indexmap::IndexMap;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io;
 use std::io::BufRead;
+use std::path::Path;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -38,7 +39,7 @@ pub enum Frame {
     Multiple {
         function_idx: usize,
         file_idx: usize,
-        line_number: u16,
+        line_number: u32,
     },
 }
 
@@ -99,12 +100,6 @@ impl AccumulatedData {
     }
 }
 
-pub fn read_trace_file(file_path: impl AsRef<std::path::Path>) -> Result<AccumulatedData, Error> {
-    let file = OpenOptions::new().read(true).open(file_path)?;
-
-    Parser::new().parse_file(file)
-}
-
 pub struct Parser {
     data: AccumulatedData,
     last_ptr: u64,
@@ -118,7 +113,8 @@ impl Parser {
         }
     }
 
-    fn parse_file(mut self, file: File) -> Result<AccumulatedData, Error> {
+    fn parse_file(mut self, file_path: impl AsRef<Path>) -> Result<AccumulatedData, Error> {
+        let file = OpenOptions::new().read(true).open(file_path)?;
         let reader = io::BufReader::new(file);
 
         for line in reader.lines() {
@@ -281,10 +277,7 @@ impl Parser {
         };
 
         let file_idx = usize::from_str_radix(file_val, 16).map_err(|_| Error::InvalidFormat)?;
-        let line_number = iter
-            .next()
-            .unwrap_or_default()
-            .parse()
+        let line_number = u32::from_str_radix(iter.next().ok_or(Error::InvalidFormat)?, 16)
             .map_err(|_| Error::InvalidFormat)?;
 
         Ok(Some(Frame::Multiple {
@@ -297,11 +290,12 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::parser::Parser;
+
     #[test]
     fn test_read_trace_file() {
         let file = "/tmp/pipe.out";
-        let data = read_trace_file(file).unwrap();
+        let data = Parser::new().parse_file(file).unwrap();
 
         println!("{:#?}", data);
     }
