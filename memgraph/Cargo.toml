@@ -1,0 +1,10 @@
+[package]
+name = "memgraph"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flamegraph = "0.6"
+
+[dependencies.utils]
+path = "../utils"

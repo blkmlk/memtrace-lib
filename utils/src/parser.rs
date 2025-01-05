@@ -18,13 +18,13 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-struct Trace {
+pub struct Trace {
     ip_idx: u64,
     parent_idx: u64,
 }
 
 #[derive(Debug)]
-struct InstructionPointer {
+pub struct InstructionPointer {
     ip: u64,
     module_idx: usize,
     frame: Frame,
@@ -44,43 +44,56 @@ pub enum Frame {
 }
 
 #[derive(Debug, Default)]
-struct AllocationData {
+pub struct AllocationData {
     allocations: u64,
     temporary: u64,
     leaked: u64,
     peak: u64,
-    size: u64,
 }
 
 #[derive(Debug)]
-struct Allocation {
+pub struct AllocationInfo {
+    allocation_idx: u64,
+    size: u64,
+}
+
+impl AllocationInfo {
+    pub fn new(allocation_idx: u64, size: u64) -> Self {
+        Self {
+            allocation_idx,
+            size,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Allocation {
     trace_idx: u64,
     data: AllocationData,
 }
 
 impl Allocation {
-    pub fn new(trace_idx: u64, size: u64) -> Self {
-        let mut data = AllocationData {
-            size,
-            ..Default::default()
-        };
-
-        Self { trace_idx, data }
+    pub fn new(trace_idx: u64) -> Self {
+        Self {
+            trace_idx,
+            data: Default::default(),
+        }
     }
 }
 
 #[derive(Debug)]
-struct AccumulatedData {
-    strings: Vec<String>,
-    traces: Vec<Trace>,
-    instruction_pointers: Vec<InstructionPointer>,
-    allocation_indices: IndexMap<u64, u64>,
-    allocations: Vec<Allocation>,
-    total: AllocationData,
-    duration: Duration,
-    peak_rss: u64,
-    page_size: u64,
-    pages: u64,
+pub struct AccumulatedData {
+    pub strings: Vec<String>,
+    pub traces: Vec<Trace>,
+    pub instruction_pointers: Vec<InstructionPointer>,
+    pub allocation_indices: IndexMap<u64, u64>,
+    pub allocation_infos: Vec<AllocationInfo>,
+    pub allocations: Vec<Allocation>,
+    pub total: AllocationData,
+    pub duration: Duration,
+    pub peak_rss: u64,
+    pub page_size: u64,
+    pub pages: u64,
 }
 
 impl AccumulatedData {
@@ -91,6 +104,7 @@ impl AccumulatedData {
             instruction_pointers: Vec::with_capacity(16384),
             allocation_indices: IndexMap::with_capacity(16384),
             allocations: Vec::with_capacity(16384),
+            allocation_infos: Vec::with_capacity(16384),
             total: AllocationData::default(),
             duration: Duration::default(),
             peak_rss: 0,
@@ -113,7 +127,7 @@ impl Parser {
         }
     }
 
-    fn parse_file(mut self, file_path: impl AsRef<Path>) -> Result<AccumulatedData, Error> {
+    pub fn parse_file(mut self, file_path: impl AsRef<Path>) -> Result<AccumulatedData, Error> {
         let file = OpenOptions::new().read(true).open(file_path)?;
         let reader = io::BufReader::new(file);
 
@@ -173,51 +187,58 @@ impl Parser {
                 let trace_idx = u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                     .map_err(|_| Error::InvalidFormat)?;
 
-                self.add_allocation(trace_idx, size);
+                let allocation_idx = self.add_allocation(trace_idx);
+                self.data
+                    .allocation_infos
+                    .push(AllocationInfo::new(allocation_idx, size));
             }
             "+" => {
-                let allocation_idx =
+                let allocation_info_idx =
                     u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
+
+                let info = &mut self.data.allocation_infos[allocation_info_idx as usize];
 
                 let allocation: &mut Allocation = self
                     .data
                     .allocations
-                    .get_mut(allocation_idx as usize)
+                    .get_mut(info.allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("allocation not found".into()))?;
 
-                self.last_ptr = allocation_idx;
+                self.last_ptr = info.allocation_idx;
 
-                allocation.data.leaked += allocation.data.size;
+                allocation.data.leaked += info.size;
                 allocation.data.allocations += 1;
 
-                self.data.total.leaked += allocation.data.size;
+                self.data.total.leaked += info.size;
                 self.data.total.allocations += 1;
                 if self.data.total.leaked > self.data.total.peak {
                     self.data.total.peak = self.data.total.leaked;
                 }
             }
             "-" => {
-                let allocation_idx =
+                let allocation_info_idx =
                     u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
                         .map_err(|_| Error::InvalidFormat)?;
+
+                let info = &mut self.data.allocation_infos[allocation_info_idx as usize];
 
                 let allocation = self
                     .data
                     .allocations
-                    .get_mut(allocation_idx as usize)
+                    .get_mut(info.allocation_idx as usize)
                     .ok_or_else(|| Error::Internal("allocation not found".into()))?;
 
-                self.data.total.leaked -= allocation.data.size;
+                self.data.total.leaked -= info.size;
 
-                let temporary = self.last_ptr == allocation_idx;
+                let temporary = self.last_ptr == info.allocation_idx;
                 self.last_ptr = 0;
 
                 if temporary {
                     self.data.total.temporary += 1;
                 }
 
-                allocation.data.leaked -= allocation.data.size;
+                allocation.data.leaked -= info.size;
                 if temporary {
                     allocation.data.temporary += 1;
                 }
@@ -250,17 +271,15 @@ impl Parser {
         Ok(())
     }
 
-    fn add_allocation(&mut self, trace_idx: u64, size: u64) {
+    fn add_allocation(&mut self, trace_idx: u64) -> u64 {
         match self.data.allocation_indices.entry(trace_idx) {
-            Entry::Occupied(e) => {
-                let idx = *e.get();
-                self.data.allocations[idx as usize].data.size += size;
-            }
+            Entry::Occupied(e) => *e.get(),
             Entry::Vacant(e) => {
                 let idx = self.data.allocations.len() as u64;
                 e.insert(idx);
-                let allocation = Allocation::new(trace_idx, size);
+                let allocation = Allocation::new(trace_idx);
                 self.data.allocations.push(allocation);
+                idx
             }
         }
     }
