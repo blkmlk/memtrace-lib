@@ -19,16 +19,16 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct Trace {
-    ip_idx: u64,
-    parent_idx: u64,
+    pub ip_idx: u64,
+    pub parent_idx: u64,
 }
 
 #[derive(Debug)]
 pub struct InstructionPointer {
-    ip: u64,
-    module_idx: usize,
-    frame: Frame,
-    inlined: Vec<Frame>,
+    pub ip: u64,
+    pub module_idx: usize,
+    pub frame: Frame,
+    pub inlined: Vec<Frame>,
 }
 
 #[derive(Debug)]
@@ -45,16 +45,16 @@ pub enum Frame {
 
 #[derive(Debug, Default)]
 pub struct AllocationData {
-    allocations: u64,
-    temporary: u64,
-    leaked: u64,
-    peak: u64,
+    pub allocations: u64,
+    pub temporary: u64,
+    pub leaked: u64,
+    pub peak: u64,
 }
 
 #[derive(Debug)]
 pub struct AllocationInfo {
-    allocation_idx: u64,
-    size: u64,
+    pub allocation_idx: u64,
+    pub size: u64,
 }
 
 impl AllocationInfo {
@@ -68,8 +68,8 @@ impl AllocationInfo {
 
 #[derive(Debug)]
 pub struct Allocation {
-    trace_idx: u64,
-    data: AllocationData,
+    pub trace_idx: u64,
+    pub data: AllocationData,
 }
 
 impl Allocation {
@@ -147,10 +147,11 @@ impl Parser {
 
         match first {
             "s" => {
-                split.next();
+                let str_len = usize::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)
+                    .map_err(|_| Error::InvalidFormat)?;
                 self.data
                     .strings
-                    .push(split.next().ok_or(Error::InvalidFormat)?.to_string());
+                    .push(line[line.len() - str_len..].to_string());
             }
             "t" => {
                 let ip_idx = u64::from_str_radix(split.next().ok_or(Error::InvalidFormat)?, 16)

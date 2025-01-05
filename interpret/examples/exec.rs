@@ -5,8 +5,8 @@ fn main() {
 
     interpret
         .execute(
-            // "/Users/id/devel/Rust/memtrack-rs/.local/simple",
-            "/Users/id/devel/Rust/memtrack-rs/.local/math_cmp",
+            "/Users/id/devel/Rust/memtrack-rs/.local/simple",
+            // "/Users/id/devel/Rust/memtrack-rs/.local/math_cmp",
             "/Users/id/devel/ALT/backtest/backtest",
         )
         .unwrap();

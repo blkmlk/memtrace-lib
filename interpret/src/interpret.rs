@@ -97,6 +97,8 @@ impl Interpreter {
 
         self.write_comments()?;
 
+        self.output.flush()?;
+
         Ok(())
     }
 
