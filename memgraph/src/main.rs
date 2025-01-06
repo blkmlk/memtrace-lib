@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 struct Opt {
+    #[clap(short, long, default_value = "false")]
+    no_open: bool,
     #[clap(short, long)]
     out_file: Option<PathBuf>,
 
@@ -40,9 +42,14 @@ fn main() {
 
     build_flamegraph(data, &output_file).unwrap();
 
-    println!("stored memory flamegraph to {}", output_file.display());
+    println!(
+        "Successfully stored memory flamegraph to {}",
+        output_file.display()
+    );
 
-    open::that(output_file).unwrap();
+    if !opt.no_open {
+        open::that(output_file).unwrap();
+    }
 
     remove_file(trace_filepath).unwrap();
 }
