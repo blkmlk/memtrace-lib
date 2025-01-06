@@ -1,3 +1,5 @@
+use common::pipe_io;
+use common::pipe_io::{PipeReader, Record};
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
 use std::ffi::OsStr;
@@ -7,8 +9,6 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus};
 use thiserror::Error;
-use utils::pipe_io;
-use utils::pipe_io::{PipeReader, Record};
 
 #[derive(Debug, Error)]
 pub enum Error {

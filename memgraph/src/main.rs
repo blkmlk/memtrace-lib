@@ -30,7 +30,7 @@ fn main() {
 
     interpret.exec(opt.cmd, opt.args, cwd).unwrap();
 
-    let data = utils::parser::Parser::new()
+    let data = common::parser::Parser::new()
         .parse_file(&trace_filepath)
         .unwrap();
 

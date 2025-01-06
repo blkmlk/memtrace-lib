@@ -1,13 +1,13 @@
 use crate::output::{Frame, Output};
 use crate::resolver::Resolver;
 use crate::{executor, resolver};
+use common::pipe_io::Record;
 use indexmap::{IndexMap, IndexSet};
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
 use thiserror::Error;
-use utils::pipe_io::Record;
 
 #[derive(Error, Debug)]
 pub enum Error {

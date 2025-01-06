@@ -9,8 +9,8 @@ anyhow = "1.0"
 clap = "4.5"
 open = "5.3"
 
-[dependencies.utils]
-path = "../utils"
+[dependencies.common]
+path = "../common"
 
 [dependencies.interpret]
 path = "../interpret"

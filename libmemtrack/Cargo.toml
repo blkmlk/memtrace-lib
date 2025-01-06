@@ -12,8 +12,8 @@ process_path = "0.1.4"
 git = "https://github.com/blkmlk/fishhook-rs"
 branch = "main"
 
-[dependencies.utils]
-path = "../utils"
+[dependencies.common]
+path = "../common"
 
 [lib]
 crate-type = ["dylib"]

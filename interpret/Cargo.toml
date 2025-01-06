@@ -11,5 +11,5 @@ addr2line = "0.24"
 rangemap = "1.5"
 rustc-demangle = "0.1"
 
-[dependencies.utils]
-path = "../utils"
+[dependencies.common]
+path = "../common"

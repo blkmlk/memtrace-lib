@@ -1,9 +1,9 @@
 use anyhow::Context;
+use common::parser::{AccumulatedData, Frame, InstructionPointer};
 use inferno::flamegraph::color::BasicPalette;
 use inferno::flamegraph::{Options, Palette};
 use std::fs::OpenOptions;
 use std::path::Path;
-use utils::parser::{AccumulatedData, Frame, InstructionPointer};
 
 struct Line {
     frames: Vec<String>,
