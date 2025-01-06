@@ -1,5 +1,6 @@
 use anyhow::Context;
-use inferno::flamegraph::Options;
+use inferno::flamegraph::color::BasicPalette;
+use inferno::flamegraph::{Options, Palette};
 use std::fs::OpenOptions;
 use std::path::Path;
 use utils::parser::{AccumulatedData, Frame, InstructionPointer};
@@ -54,6 +55,8 @@ pub fn build_flamegraph(
 
     let mut opts = Options::default();
     opts.count_name = "bytes".to_string();
+    opts.title = "Memory Graph".to_string();
+    opts.colors = Palette::Basic(BasicPalette::Mem);
 
     let output = OpenOptions::new()
         .write(true)

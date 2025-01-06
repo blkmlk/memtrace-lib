@@ -42,5 +42,7 @@ fn main() {
 
     println!("stored memory flamegraph to {}", output_file.display());
 
+    open::that(output_file).unwrap();
+
     remove_file(trace_filepath).unwrap();
 }
