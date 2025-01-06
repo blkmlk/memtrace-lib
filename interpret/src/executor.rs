@@ -1,8 +1,10 @@
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
+use std::ffi::OsStr;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
+use std::path::Path;
 use std::process::{Child, Command, ExitStatus};
 use thiserror::Error;
 use utils::pipe_io;
@@ -18,7 +20,11 @@ pub enum Error {
     PipeError(#[from] pipe_io::Error),
 }
 
-pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
+pub fn exec_cmd<S, P>(program: S, args: impl IntoIterator<Item = S>, cwd: P) -> ExecResult
+where
+    S: AsRef<OsStr>,
+    P: AsRef<Path>,
+{
     let pid = std::process::id();
     let pipe_file_path = format!("/tmp/{}.pipe", pid);
 
@@ -33,7 +39,7 @@ pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
     ];
 
     let mut cmd = Command::new(program);
-    // cmd.stdout(Stdio::null());
+    cmd.args(args);
     cmd.envs(envs);
     cmd.current_dir(cwd);
 
@@ -102,6 +108,7 @@ mod tests {
     fn test_exec() {
         let mut res = exec_cmd(
             "/Users/id/devel/ALT/backtest/backtest/target/release/examples/math_cmp",
+            [],
             "/Users/id/devel/ALT/backtest/backtest",
         );
 

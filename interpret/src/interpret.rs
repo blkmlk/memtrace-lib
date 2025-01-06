@@ -2,6 +2,7 @@ use crate::output::{Frame, Output};
 use crate::resolver::Resolver;
 use crate::{executor, resolver};
 use indexmap::{IndexMap, IndexSet};
+use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
@@ -86,8 +87,17 @@ impl Interpreter {
         })
     }
 
-    pub fn execute(&mut self, cmd: &str, cwd: &str) -> Result<(), Error> {
-        let mut exec = executor::exec_cmd(cmd, cwd);
+    pub fn exec<S, P>(
+        &mut self,
+        program: S,
+        args: impl IntoIterator<Item = S>,
+        cwd: P,
+    ) -> Result<(), Error>
+    where
+        S: AsRef<OsStr>,
+        P: AsRef<Path>,
+    {
+        let mut exec = executor::exec_cmd(program, args, cwd);
 
         while let Some(item) = exec.next() {
             let record = item?;

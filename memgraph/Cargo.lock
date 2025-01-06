@@ -406,6 +406,7 @@ name = "memgraph"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "inferno",
  "interpret",
  "utils",

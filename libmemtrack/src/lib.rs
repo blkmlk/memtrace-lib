@@ -142,6 +142,4 @@ fn init() {
             },
         ]);
     }
-
-    println!("Initializing memory system...");
 }
