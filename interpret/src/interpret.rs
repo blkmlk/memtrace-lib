@@ -92,12 +92,13 @@ impl Interpreter {
         program: S,
         args: impl IntoIterator<Item = S>,
         cwd: P,
+        lib_path: &str,
     ) -> Result<(), Error>
     where
         S: AsRef<OsStr>,
         P: AsRef<Path>,
     {
-        let mut exec = executor::exec_cmd(program, args, cwd);
+        let mut exec = executor::exec_cmd(program, args, cwd, lib_path);
 
         while let Some(item) = exec.next() {
             let record = item?;

@@ -28,7 +28,9 @@ fn main() {
 
     let cwd = std::env::current_dir().unwrap();
 
-    interpret.exec(opt.cmd, opt.args, cwd).unwrap();
+    let lib_path = env!("LIB_PATH");
+
+    interpret.exec(opt.cmd, opt.args, cwd, lib_path).unwrap();
 
     let data = common::parser::Parser::new()
         .parse_file(&trace_filepath)

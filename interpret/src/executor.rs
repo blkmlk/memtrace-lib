@@ -20,7 +20,12 @@ pub enum Error {
     PipeError(#[from] pipe_io::Error),
 }
 
-pub fn exec_cmd<S, P>(program: S, args: impl IntoIterator<Item = S>, cwd: P) -> ExecResult
+pub fn exec_cmd<S, P>(
+    program: S,
+    args: impl IntoIterator<Item = S>,
+    cwd: P,
+    lib_path: &str,
+) -> ExecResult
 where
     S: AsRef<OsStr>,
     P: AsRef<Path>,
@@ -32,10 +37,7 @@ where
 
     let envs = [
         ("PIPE_FILEPATH", pipe_file_path.as_str()),
-        (
-            "DYLD_INSERT_LIBRARIES",
-            "/Users/id/devel/Rust/memtrack-rs/libmemtrack/target/release/liblibmemtrack.dylib",
-        ),
+        ("DYLD_INSERT_LIBRARIES", lib_path),
     ];
 
     let mut cmd = Command::new(program);
@@ -106,10 +108,13 @@ mod tests {
 
     #[test]
     fn test_exec() {
+        let lib_path =
+            "/Users/id/devel/Rust/memtrack-rs/libmemtrack/target/release/liblibmemtrack.dylib";
         let mut res = exec_cmd(
             "/Users/id/devel/ALT/backtest/backtest/target/release/examples/math_cmp",
             [],
             "/Users/id/devel/ALT/backtest/backtest",
+            lib_path,
         );
 
         while let Some(result) = res.next() {
