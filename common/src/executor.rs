@@ -5,7 +5,6 @@ use nix::unistd::mkfifo;
 use std::ffi::OsStr;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus};
 use thiserror::Error;
@@ -99,26 +98,5 @@ impl ExecResult {
 impl Drop for ExecResult {
     fn drop(&mut self) {
         _ = remove_file(&self.pipe_filepath);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::executor::exec_cmd;
-
-    #[test]
-    fn test_exec() {
-        let lib_path =
-            "/Users/id/devel/Rust/memtrack-rs/libmemtrack/target/release/liblibmemtrack.dylib";
-        let mut res = exec_cmd(
-            "/Users/id/devel/ALT/backtest/backtest/target/release/examples/math_cmp",
-            [],
-            "/Users/id/devel/ALT/backtest/backtest",
-            lib_path,
-        );
-
-        while let Some(result) = res.next() {
-            println!("{:?}", result.unwrap());
-        }
     }
 }
