@@ -1,5 +1,5 @@
 [package]
-name = "libmemtrack"
+name = "memtrack"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,7 +13,7 @@ git = "https://github.com/blkmlk/fishhook-rs"
 branch = "main"
 
 [dependencies.common]
-path = "../common"
+path = "common"
 
 [lib]
 crate-type = ["dylib"]
