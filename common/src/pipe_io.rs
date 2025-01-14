@@ -6,15 +6,6 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::num::ParseIntError;
 use thiserror::Error;
 
-const OPERATION_VERSION: u8 = b'v';
-const OPERATION_EXEC: u8 = b'x';
-const OPERATION_PAGE_INFO: u8 = b'X';
-const OPERATION_TRACE: u8 = b't';
-const OPERATION_ALLOC: u8 = b'+';
-const OPERATION_FREE: u8 = b'-';
-const OPERATION_DURATION: u8 = b'c';
-const OPERATION_RSS: u8 = b'R';
-
 pub struct PipeReader {
     reader: BufReader<File>,
     buf: [u8; 1024],

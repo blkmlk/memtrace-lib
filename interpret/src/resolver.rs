@@ -27,26 +27,64 @@ impl Module {
         }
     }
 
-    pub fn lookup(&self, ip: u64, loader: &Loader) -> Option<Location> {
-        let symbol = loader.find_symbol(ip)?;
-        let function_name = rustc_demangle::demangle(symbol).to_string();
+    pub fn lookup(&self, ip: u64, loader: &Loader) -> Option<LookupResult> {
+        let mut locations = Vec::new();
 
-        Some(Location {
+        let mut iter = loader.find_frames(ip).unwrap();
+        while let Some(frame) = iter.next().unwrap() {
+            let function_name =
+                rustc_demangle::demangle(frame.function.unwrap().name.to_string().unwrap())
+                    .to_string();
+            let location = match frame.location {
+                Some(location) => Location {
+                    function_name,
+                    file_name: Some(location.file.unwrap().to_string()),
+                    line_number: Some(location.line.unwrap_or_default()),
+                },
+                None => Location {
+                    function_name,
+                    file_name: None,
+                    line_number: None,
+                },
+            };
+
+            locations.push(location);
+        }
+
+        if locations.is_empty() {
+            let symbol = loader.find_symbol(ip).unwrap();
+            let function_name = rustc_demangle::demangle(symbol).to_string();
+
+            locations.push(Location {
+                function_name,
+                file_name: None,
+                line_number: None,
+            })
+        }
+
+        Some(LookupResult {
             module_id: self.id,
-            function_name,
+            locations,
         })
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Location {
+pub struct LookupResult {
     pub module_id: usize,
+    pub locations: Vec<Location>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Location {
     pub function_name: String,
+    pub file_name: Option<String>,
+    pub line_number: Option<u32>,
 }
 
 pub struct Resolver {
     modules: RangeMap<u64, Module>,
-    cached: HashMap<u64, Location>,
+    cached: HashMap<u64, LookupResult>,
     loaders: HashMap<u64, Loader>,
 }
 
@@ -80,14 +118,19 @@ impl Resolver {
         Ok(())
     }
 
-    pub fn lookup(&mut self, ip: u64) -> Option<Location> {
+    pub fn lookup(&mut self, ip: u64) -> Option<LookupResult> {
         if let Some(location) = self.cached.get(&ip).cloned() {
             return Some(location);
         }
 
         let module = self.modules.get(&ip)?;
         let loader = self.loaders.get(&module.start_address)?;
-        module.lookup(ip, loader)
+
+        let locations = module.lookup(ip, loader)?;
+
+        self.cached.insert(ip, locations.clone());
+
+        Some(locations)
     }
 }
 
@@ -119,7 +162,19 @@ mod tests {
 
         let ip = boo as u64 - slide;
 
-        let location = resolver.lookup(ip);
-        println!("{:#?}", location);
+        let res = resolver.lookup(ip);
+        println!("{:#?}", res);
+    }
+
+    #[test]
+    fn test_lookup_binary() {
+        let exe = "/Users/id/devel/Rust/memtrack-rs/.local/simple";
+        let addr = 0x100001874;
+
+        let mut resolver = Resolver::new();
+        resolver.add_module(0, exe, 0x100000000, 0x1000000).unwrap();
+
+        let res = resolver.lookup(addr);
+        println!("{:#?}", res);
     }
 }

@@ -12,7 +12,7 @@ pub enum Frame {
     Multiple {
         function_idx: usize,
         file_idx: usize,
-        line_number: u16,
+        line_number: u32,
     },
 }
 
@@ -36,7 +36,7 @@ impl Output {
     }
 
     pub fn write_string(&mut self, value: &str) -> std::io::Result<()> {
-        let size = value.as_bytes().len();
+        let size = value.len();
         writeln!(self.buffer, "s {:x} {}", size, value)
     }
 
@@ -95,5 +95,9 @@ impl Output {
 
     pub fn write_comment(&mut self, comment: &str) -> std::io::Result<()> {
         writeln!(self.buffer, "# {}", comment)
+    }
+
+    pub fn flush(&mut self) -> std::io::Result<()> {
+        self.buffer.flush()
     }
 }

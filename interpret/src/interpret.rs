@@ -1,12 +1,13 @@
 use crate::output::{Frame, Output};
 use crate::resolver::Resolver;
 use crate::{executor, resolver};
+use common::pipe_io::Record;
 use indexmap::{IndexMap, IndexSet};
+use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
 use thiserror::Error;
-use utils::pipe_io::Record;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -86,8 +87,18 @@ impl Interpreter {
         })
     }
 
-    pub fn execute(&mut self, cmd: &str, cwd: &str) -> Result<(), Error> {
-        let mut exec = executor::exec_cmd(cmd, cwd);
+    pub fn exec<S, P>(
+        &mut self,
+        program: S,
+        args: impl IntoIterator<Item = S>,
+        cwd: P,
+        lib_path: &str,
+    ) -> Result<(), Error>
+    where
+        S: AsRef<OsStr>,
+        P: AsRef<Path>,
+    {
+        let mut exec = executor::exec_cmd(program, args, cwd, lib_path);
 
         while let Some(item) = exec.next() {
             let record = item?;
@@ -96,6 +107,8 @@ impl Interpreter {
         }
 
         self.write_comments()?;
+
+        self.output.flush()?;
 
         Ok(())
     }
@@ -173,17 +186,38 @@ impl Interpreter {
             None => {
                 let (id, _) = self.frames.insert_full(ip);
 
-                let Some(location) = self.resolver.lookup(ip) else {
-                    return Err(Error::Custom("ip location not found".to_string()));
+                let Some(result) = self.resolver.lookup(ip) else {
+                    return Err(Error::Custom("ip locations not found".to_string()));
                 };
 
-                let function_idx = self.write_string(&location.function_name)?;
+                let mut frames = Vec::with_capacity(result.locations.len());
 
-                self.output.write_instruction(
-                    ip,
-                    location.module_id,
-                    &[Frame::Single { function_idx }],
-                )?;
+                for location in result.locations {
+                    let function_idx = self.write_string(&location.function_name)?;
+
+                    let frame = if location.file_name.is_some() {
+                        let file_idx = self.write_string(
+                            &location
+                                .file_name
+                                .ok_or_else(|| Error::Custom("empty file name".into()))?,
+                        )?;
+
+                        Frame::Multiple {
+                            function_idx,
+                            file_idx,
+                            line_number: location
+                                .line_number
+                                .ok_or_else(|| Error::Custom("empty line number".into()))?,
+                        }
+                    } else {
+                        Frame::Single { function_idx }
+                    };
+
+                    frames.push(frame);
+                }
+
+                self.output
+                    .write_instruction(ip, result.module_id, &frames)?;
 
                 Ok(id + 1)
             }

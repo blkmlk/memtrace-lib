@@ -1,12 +1,14 @@
+use common::pipe_io;
+use common::pipe_io::{PipeReader, Record};
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
+use std::ffi::OsStr;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
+use std::path::Path;
 use std::process::{Child, Command, ExitStatus};
 use thiserror::Error;
-use utils::pipe_io;
-use utils::pipe_io::{PipeReader, Record};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,7 +20,16 @@ pub enum Error {
     PipeError(#[from] pipe_io::Error),
 }
 
-pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
+pub fn exec_cmd<S, P>(
+    program: S,
+    args: impl IntoIterator<Item = S>,
+    cwd: P,
+    lib_path: &str,
+) -> ExecResult
+where
+    S: AsRef<OsStr>,
+    P: AsRef<Path>,
+{
     let pid = std::process::id();
     let pipe_file_path = format!("/tmp/{}.pipe", pid);
 
@@ -26,14 +37,11 @@ pub fn exec_cmd(program: &str, cwd: &str) -> ExecResult {
 
     let envs = [
         ("PIPE_FILEPATH", pipe_file_path.as_str()),
-        (
-            "DYLD_INSERT_LIBRARIES",
-            "/Users/id/devel/Rust/memtrack-rs/libmemtrack/target/release/liblibmemtrack.dylib",
-        ),
+        ("DYLD_INSERT_LIBRARIES", lib_path),
     ];
 
     let mut cmd = Command::new(program);
-    // cmd.stdout(Stdio::null());
+    cmd.args(args);
     cmd.envs(envs);
     cmd.current_dir(cwd);
 
@@ -100,9 +108,13 @@ mod tests {
 
     #[test]
     fn test_exec() {
+        let lib_path =
+            "/Users/id/devel/Rust/memtrack-rs/libmemtrack/target/release/liblibmemtrack.dylib";
         let mut res = exec_cmd(
             "/Users/id/devel/ALT/backtest/backtest/target/release/examples/math_cmp",
+            [],
             "/Users/id/devel/ALT/backtest/backtest",
+            lib_path,
         );
 
         while let Some(result) = res.next() {
