@@ -3,6 +3,8 @@ mod trace;
 mod trace_tree;
 mod tracker;
 
+pub use common;
+
 use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};

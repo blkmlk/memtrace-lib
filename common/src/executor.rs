@@ -1,5 +1,5 @@
-use common::pipe_io;
-use common::pipe_io::{PipeReader, Record};
+use crate::pipe_io;
+use crate::pipe_io::{PipeReader, Record};
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
 use std::ffi::OsStr;

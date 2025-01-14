@@ -1,7 +1,7 @@
 use crate::output::{Frame, Output};
+use crate::pipe_io::Record;
 use crate::resolver::Resolver;
 use crate::{executor, resolver};
-use common::pipe_io::Record;
 use indexmap::{IndexMap, IndexSet};
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
