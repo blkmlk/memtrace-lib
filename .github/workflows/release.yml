@@ -25,6 +25,15 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.FISHHOOK_DEPLOY_KEY }}
+
+      - name: Configure Git to use SSH
+        run: |
+          git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
