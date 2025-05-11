@@ -39,27 +39,37 @@ jobs:
           name: libmemtrack
           path: target/release/libmemtrack.dylib
 
-#  build-linux:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Install Rust target
-#        run: rustup target add x86_64-unknown-linux-gnu
-#
-#      - name: Install cross-compiler
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install -y gcc-multilib
-#
-#      - name: Build Linux shared library
-#        run: cargo build --release --target x86_64-unknown-linux-gnu
-#
-#      - name: Upload Linux artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: libyour_crate_name-linux
-#          path: target/x86_64-unknown-linux-gnu/release/libyour_crate_name.so
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.FISHHOOK_DEPLOY_KEY }}
+
+      - name: Configure Git to use SSH
+        run: |
+          git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+
+      - name: Install Rust target
+        run: rustup target add x86_64-unknown-linux-gnu
+
+      - name: Install cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+
+      - name: Build Linux shared library
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libmemtrack
+          path: target/release/libmemtrack.so
 
 #  release:
 #    name: Create GitHub Release
