@@ -1,0 +1,68 @@
+name: Cross-Platform Rust Library Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - "*"
+
+jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact_ext: .rlib
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact_ext: .rlib
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+          target: ${{ matrix.target }}
+
+      - name: Install dependencies (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Build Rust library
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.target }}/release/lib*.rlib artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-${{ matrix.target }}
+          path: artifacts/
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: all-artifacts/**/*.rlib
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
