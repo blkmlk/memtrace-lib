@@ -42,6 +42,8 @@ jobs:
 
   release:
     name: Create GitHub Release
+    permissions:
+      contents: write
     needs: build-macos
     runs-on: ubuntu-latest
 
