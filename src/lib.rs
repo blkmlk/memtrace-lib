@@ -20,57 +20,104 @@ static mut ORIGINAL_REALLOC: Option<
     unsafe extern "C" fn(ptr: *mut c_void, size: size_t) -> *mut c_void,
 > = None;
 static mut ORIGINAL_FREE: Option<unsafe extern "C" fn(ptr: *mut c_void)> = None;
+
+// mi-malloc
+static mut MI_MALLOC: Option<unsafe extern "C" fn(size: size_t) -> *mut c_void> = None;
+static mut MI_CALLOC: Option<unsafe extern "C" fn(num: size_t, size: size_t) -> *mut c_void> = None;
+static mut MI_REALLOC: Option<unsafe extern "C" fn(ptr: *mut c_void, size: size_t) -> *mut c_void> =
+    None;
+static mut MI_FREE: Option<unsafe extern "C" fn(ptr: *mut c_void)> = None;
+
 static TRACKER: LazyLock<Mutex<Option<Tracker>>> = LazyLock::new(|| Mutex::new(None));
 
-#[no_mangle]
-pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
-    let original_malloc = ORIGINAL_MALLOC.unwrap();
-    let ptr = original_malloc(size);
+macro_rules! gen_malloc {
+    ($name:ident, $original:ident) => {
+        #[no_mangle]
+        pub unsafe extern "C" fn $name(size: size_t) -> *mut c_void {
+            let original_malloc = $original.unwrap();
+            let ptr = original_malloc(size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(size, ptr as usize);
-    }
+            let mut guard = TRACKER.lock().unwrap();
+            if let Some(tracker) = guard.as_mut() {
+                tracker.on_malloc(size, ptr as usize);
+            }
 
-    ptr
+            ptr
+        }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
-    let original_calloc = ORIGINAL_CALLOC.unwrap();
-    let ptr = original_calloc(num, size);
+macro_rules! gen_calloc {
+    ($name:ident, $original:ident) => {
+        #[no_mangle]
+        pub unsafe extern "C" fn $name(num: size_t, size: size_t) -> *mut c_void {
+            let original_calloc = $original.unwrap();
+            let ptr = original_calloc(num, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(num * size, ptr as usize);
-    }
+            let mut guard = TRACKER.lock().unwrap();
+            if let Some(tracker) = guard.as_mut() {
+                tracker.on_malloc(num * size, ptr as usize);
+            }
 
-    ptr
+            ptr
+        }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn my_realloc(ptr_in: *mut c_void, size: size_t) -> *mut c_void {
-    let original_realloc = ORIGINAL_REALLOC.unwrap();
-    let ptr_out = original_realloc(ptr_in, size);
+macro_rules! gen_realloc {
+    ($name:ident, $original:ident) => {
+        #[no_mangle]
+        pub unsafe extern "C" fn $name(ptr_in: *mut c_void, size: size_t) -> *mut c_void {
+            let original_realloc = $original.unwrap();
+            let ptr_out = original_realloc(ptr_in, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
-    }
+            let mut guard = TRACKER.lock().unwrap();
+            if let Some(tracker) = guard.as_mut() {
+                tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+            }
 
-    ptr_out
+            ptr_out
+        }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
-    let original_free = ORIGINAL_FREE.unwrap();
-    original_free(ptr);
+macro_rules! gen_free {
+    ($name:ident, $original:ident) => {
+        #[no_mangle]
+        pub unsafe extern "C" fn $name(ptr: *mut c_void) {
+            let original_free = $original.unwrap();
+            original_free(ptr);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_free(ptr as usize);
-    }
+            let mut guard = TRACKER.lock().unwrap();
+            if let Some(tracker) = guard.as_mut() {
+                tracker.on_free(ptr as usize);
+            }
+        }
+    };
 }
+
+macro_rules! bind_func {
+    ($($symbol:ty)*, $var:ident) => {
+        let symbol = concat!(stringify!($($symbol)*), "\0").as_bytes();
+        let ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
+        if !ptr.is_null() {
+            $var = Some(std::mem::transmute(ptr));
+        } else {
+            eprintln!(concat!("Error: Could not locate original ", stringify!($($symbol)*)));
+        }
+    };
+}
+
+gen_malloc!(orig_malloc, ORIGINAL_MALLOC);
+gen_calloc!(orig_calloc, ORIGINAL_CALLOC);
+gen_realloc!(orig_realloc, ORIGINAL_REALLOC);
+gen_free!(orig_free, ORIGINAL_FREE);
+
+// mi-malloc
+gen_malloc!(mi_malloc, MI_MALLOC);
+gen_calloc!(mi_calloc, MI_CALLOC);
+gen_realloc!(mi_realloc, MI_REALLOC);
+gen_free!(mi_free, MI_FREE);
 
 pub extern "C" fn my_exit() {
     let mut guard = TRACKER.lock().unwrap();
@@ -81,37 +128,15 @@ pub extern "C" fn my_exit() {
 
 unsafe fn init_functions() {
     INIT.call_once(|| {
-        let symbol = b"malloc\0";
-        let malloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
-        if !malloc_ptr.is_null() {
-            ORIGINAL_MALLOC = Some(std::mem::transmute(malloc_ptr));
-        } else {
-            eprintln!("Error: Could not locate original malloc!");
-        }
+        bind_func!(malloc, ORIGINAL_MALLOC);
+        bind_func!(calloc, ORIGINAL_CALLOC);
+        bind_func!(realloc, ORIGINAL_REALLOC);
+        bind_func!(free, ORIGINAL_FREE);
 
-        let symbol = b"calloc\0";
-        let calloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
-        if !calloc_ptr.is_null() {
-            ORIGINAL_CALLOC = Some(std::mem::transmute(calloc_ptr));
-        } else {
-            eprintln!("Error: Could not locate original calloc!");
-        }
-
-        let symbol = b"realloc\0";
-        let realloc_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
-        if !realloc_ptr.is_null() {
-            ORIGINAL_REALLOC = Some(std::mem::transmute(realloc_ptr));
-        } else {
-            eprintln!("Error: Could not locate original realloc!");
-        }
-
-        let symbol = b"free\0";
-        let free_ptr = dlsym(RTLD_NEXT, symbol.as_ptr() as *const _);
-        if !free_ptr.is_null() {
-            ORIGINAL_FREE = Some(std::mem::transmute(free_ptr));
-        } else {
-            eprintln!("Error: Could not locate original free!");
-        }
+        bind_func!(mi_malloc, MI_MALLOC);
+        bind_func!(mi_calloc, MI_CALLOC);
+        bind_func!(mi_realloc, MI_REALLOC);
+        bind_func!(mi_free, MI_FREE);
 
         let pipe_filepath = env::var("PIPE_FILEPATH").expect("PIPE_FILEPATH must be set");
 
@@ -133,19 +158,36 @@ fn init() {
         register(vec![
             Rebinding {
                 name: "malloc".to_string(),
-                function: my_malloc as *const c_void,
+                function: orig_malloc as *const c_void,
             },
             Rebinding {
                 name: "calloc".to_string(),
-                function: my_calloc as *const c_void,
+                function: orig_calloc as *const c_void,
             },
             Rebinding {
                 name: "realloc".to_string(),
-                function: my_realloc as *const c_void,
+                function: orig_realloc as *const c_void,
             },
             Rebinding {
                 name: "free".to_string(),
-                function: my_free as *const c_void,
+                function: orig_free as *const c_void,
+            },
+            // mi-malloc
+            Rebinding {
+                name: "mi_malloc".to_string(),
+                function: mi_malloc as *const c_void,
+            },
+            Rebinding {
+                name: "mi_calloc".to_string(),
+                function: mi_calloc as *const c_void,
+            },
+            Rebinding {
+                name: "mi_realloc".to_string(),
+                function: mi_realloc as *const c_void,
+            },
+            Rebinding {
+                name: "mi_free".to_string(),
+                function: mi_free as *const c_void,
             },
             Rebinding {
                 name: "atexit".to_string(),
