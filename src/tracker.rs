@@ -3,9 +3,10 @@ use crate::trace::Trace;
 use crate::trace_tree::TraceTree;
 use common::pipe_io::PipeWriter;
 use libc::{
-    mach_msg_type_number_t, mach_task_basic_info_data_t, mach_task_self, sysconf, task_info,
-    task_info_t, time_value_t, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT,
+    mach_msg_type_number_t, mach_task_basic_info_data_t, sysconf, task_info, task_info_t,
+    time_value_t, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT,
 };
+use mach2::traps::mach_task_self;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::Instant;

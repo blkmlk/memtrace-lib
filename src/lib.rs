@@ -10,8 +10,7 @@ use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
 use std::env;
 use std::ffi::c_void;
-use std::os::unix::ffi::OsStrExt;
-use std::sync::Once;
+use std::sync::{LazyLock, Mutex, Once};
 
 static INIT: Once = Once::new();
 static mut ORIGINAL_MALLOC: Option<unsafe extern "C" fn(size: size_t) -> *mut c_void> = None;
@@ -21,14 +20,17 @@ static mut ORIGINAL_REALLOC: Option<
     unsafe extern "C" fn(ptr: *mut c_void, size: size_t) -> *mut c_void,
 > = None;
 static mut ORIGINAL_FREE: Option<unsafe extern "C" fn(ptr: *mut c_void)> = None;
-static mut TRACKER: Option<Tracker> = None;
+static TRACKER: LazyLock<Mutex<Option<Tracker>>> = LazyLock::new(|| Mutex::new(None));
 
 #[no_mangle]
 pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
-    TRACKER.as_mut().unwrap().on_malloc(size, ptr as usize);
+    let mut guard = TRACKER.lock().unwrap();
+    if let Some(tracker) = guard.as_mut() {
+        tracker.on_malloc(size, ptr as usize);
+    }
 
     ptr
 }
@@ -38,10 +40,10 @@ pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
     let original_calloc = ORIGINAL_CALLOC.unwrap();
     let ptr = original_calloc(num, size);
 
-    TRACKER
-        .as_mut()
-        .unwrap()
-        .on_malloc(num * size, ptr as usize);
+    let mut guard = TRACKER.lock().unwrap();
+    if let Some(tracker) = guard.as_mut() {
+        tracker.on_malloc(num * size, ptr as usize);
+    }
 
     ptr
 }
@@ -51,10 +53,10 @@ pub unsafe extern "C" fn my_realloc(ptr_in: *mut c_void, size: size_t) -> *mut c
     let original_realloc = ORIGINAL_REALLOC.unwrap();
     let ptr_out = original_realloc(ptr_in, size);
 
-    TRACKER
-        .as_mut()
-        .unwrap()
-        .on_realloc(size, ptr_in as usize, ptr_out as usize);
+    let mut guard = TRACKER.lock().unwrap();
+    if let Some(tracker) = guard.as_mut() {
+        tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+    }
 
     ptr_out
 }
@@ -64,12 +66,16 @@ pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
 
-    TRACKER.as_mut().unwrap().on_free(ptr as usize);
+    let mut guard = TRACKER.lock().unwrap();
+    if let Some(tracker) = guard.as_mut() {
+        tracker.on_free(ptr as usize);
+    }
 }
 
 pub extern "C" fn my_exit() {
-    unsafe {
-        TRACKER.as_mut().unwrap().on_exit();
+    let mut guard = TRACKER.lock().unwrap();
+    if let Some(tracker) = guard.as_mut() {
+        tracker.on_exit();
     }
 }
 
@@ -109,8 +115,11 @@ unsafe fn init_functions() {
 
         let pipe_filepath = env::var("PIPE_FILEPATH").expect("PIPE_FILEPATH must be set");
 
-        TRACKER = Some(Tracker::new(pipe_filepath));
-        TRACKER.as_mut().unwrap().init();
+        let mut tracker = Tracker::new(pipe_filepath);
+        tracker.init();
+
+        let mut lock = TRACKER.lock().unwrap();
+        *lock = Some(tracker);
 
         libc::atexit(my_exit);
     });
