@@ -200,7 +200,7 @@ impl Parser {
 
                 let info = &mut self.data.allocation_infos[allocation_info_idx as usize];
 
-                let allocation: &mut Allocation = self
+                let allocation = self
                     .data
                     .allocations
                     .get_mut(info.allocation_idx as usize)
@@ -209,10 +209,14 @@ impl Parser {
                 self.last_ptr = info.allocation_idx;
 
                 allocation.data.leaked += info.size;
+                if allocation.data.leaked > allocation.data.peak {
+                    allocation.data.peak = allocation.data.leaked;
+                }
                 allocation.data.allocations += 1;
 
                 self.data.total.leaked += info.size;
                 self.data.total.allocations += 1;
+
                 if self.data.total.leaked > self.data.total.peak {
                     self.data.total.peak = self.data.total.leaked;
                 }
