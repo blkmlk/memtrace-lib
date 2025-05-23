@@ -202,12 +202,14 @@ impl Interpreter {
                                 .ok_or_else(|| Error::Custom("empty file name".into()))?,
                         )?;
 
+                        let line_number = location
+                            .line_number
+                            .ok_or_else(|| Error::Custom("empty line number".into()))?;
+
                         Frame::Multiple {
                             function_idx,
                             file_idx,
-                            line_number: location
-                                .line_number
-                                .ok_or_else(|| Error::Custom("empty line number".into()))?,
+                            line_number,
                         }
                     } else {
                         Frame::Single { function_idx }
