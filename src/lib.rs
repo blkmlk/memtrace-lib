@@ -3,7 +3,7 @@ mod trace;
 mod trace_tree;
 mod tracker;
 
-pub use common;
+pub use utils;
 
 use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
