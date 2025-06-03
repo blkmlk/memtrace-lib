@@ -3,7 +3,7 @@
 //!
 //! ## memtrack-lib
 //!
-//! A dynamic library for collections heap consumption.
+//! A dynamic library for collecting heap consumption.
 //!
 //! > **Platform support**: Currently tested only on macOS (aarch64-apple-darwin)
 //!
@@ -14,7 +14,7 @@ mod trace;
 mod trace_tree;
 mod tracker;
 
-pub use utils;
+pub use memtrack_utils;
 
 use crate::tracker::Tracker;
 use fishhook::{register, Rebinding};
