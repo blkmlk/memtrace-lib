@@ -11,7 +11,7 @@ mach2 = "0.4.2"
 fishhook = "0.1.1"
 
 [dependencies.utils]
-version = "0.1.0"
+version = "0.0.3"
 path = "utils"
 
 [lib]
