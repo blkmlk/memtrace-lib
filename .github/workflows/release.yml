@@ -3,7 +3,7 @@ name: Cross-Platform Rust Library Release
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 jobs:
   build-macos:
@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: libmemtrack
-          path: target/release/libmemtrack.dylib
+          path: target/release/libmemtrack_lib.dylib
 
   release:
     name: Create GitHub Release
