@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: libmemtrack
-          path: target/release/libmemtrack_lib.dylib
+          path: target/release/libmemtrace_lib.dylib
 
   release:
     name: Create GitHub Release

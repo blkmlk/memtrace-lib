@@ -1,13 +1,13 @@
 [package]
-name = "memtrack-lib"
-version = "0.1.0"
+name = "memtrace-lib"
+version = "0.2.0"
 edition = "2021"
-homepage = "https://github.com/blkmlk/memtrack-lib"
+homepage = "https://github.com/blkmlk/memtrace-lib"
 license = "MIT"
 description = "A dynamic library for collecting heap consumption"
-keywords = ["dylib", "heap", "memgraph", "memgraph"]
+keywords = ["dylib", "heap", "memory", "profile"]
 categories = ["os"]
-repository = "https://github.com/blkmlk/memtrack-lib"
+repository = "https://github.com/blkmlk/memtrace-lib"
 
 [dependencies]
 libc = "0.2.164"
@@ -15,7 +15,7 @@ ctor = "0.4.2"
 process_path = "0.1.4"
 mach2 = "0.4.2"
 fishhook = "0.1.1"
-memtrack-utils = "0.1.0"
+memtrace-utils = "0.3.0"
 
 [lib]
 path = "src/lib.rs"

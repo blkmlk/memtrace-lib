@@ -6,7 +6,7 @@ use libc::{
     time_value_t, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT,
 };
 use mach2::traps::mach_task_self;
-use memtrack_utils::pipe_io::PipeWriter;
+use memtrace_utils::pipe_io::PipeWriter;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::Instant;
