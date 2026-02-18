@@ -13,9 +13,14 @@ repository = "https://github.com/blkmlk/memtrace-lib"
 libc = "0.2.164"
 ctor = "0.4.2"
 process_path = "0.1.4"
-mach2 = "0.4.2"
-fishhook = "0.1.1"
+#fishhook = "0.1.1"
 memtrace-utils = "0.3.0"
+
+[dependencies.fishhook]
+path = "../fishhook-rs/"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2 = { version = "0.4.2", optional = true }
 
 [lib]
 path = "src/lib.rs"

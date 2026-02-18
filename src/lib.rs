@@ -4,7 +4,7 @@
 //!
 //! > **Platform support**: Currently tested only on macOS (aarch64-apple-darwin)
 
-mod dylib;
+mod arch;
 mod trace;
 mod trace_tree;
 mod tracker;
@@ -12,7 +12,7 @@ mod tracker;
 pub use memtrace_utils;
 
 use crate::tracker::Tracker;
-use fishhook::{register, Rebinding};
+use fishhook::arch::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
 use std::env;
 use std::ffi::c_void;
@@ -139,23 +139,23 @@ fn init() {
         register(vec![
             Rebinding {
                 name: "malloc".to_string(),
-                function: my_malloc as *const c_void,
+                function: my_malloc as *const () as usize,
             },
             Rebinding {
                 name: "calloc".to_string(),
-                function: my_calloc as *const c_void,
+                function: my_calloc as *const () as usize,
             },
             Rebinding {
                 name: "realloc".to_string(),
-                function: my_realloc as *const c_void,
+                function: my_realloc as *const () as usize,
             },
             Rebinding {
                 name: "free".to_string(),
-                function: my_free as *const c_void,
+                function: my_free as *const () as usize,
             },
             Rebinding {
                 name: "atexit".to_string(),
-                function: my_exit as *const c_void,
+                function: my_exit as *const () as usize,
             },
         ]);
     }

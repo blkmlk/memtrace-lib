@@ -1,11 +1,6 @@
-use crate::dylib::{get_image_slide, get_images};
+use crate::arch;
 use crate::trace::Trace;
 use crate::trace_tree::TraceTree;
-use libc::{
-    mach_msg_type_number_t, mach_task_basic_info_data_t, sysconf, task_info, task_info_t,
-    time_value_t, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT,
-};
-use mach2::traps::mach_task_self;
 use memtrace_utils::pipe_io::PipeWriter;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -33,13 +28,13 @@ impl Tracker {
     pub fn init(&mut self) {
         self.writer.write_version(100);
 
-        let sys_info = get_sys_info();
+        let sys_info = arch::get_sys_info();
 
         self.writer.write_exec(&sys_info.exec_path);
         self.writer
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
 
-        self.slide = get_image_slide();
+        self.slide = arch::get_image_slide();
 
         self.write_images();
     }
@@ -85,66 +80,13 @@ impl Tracker {
     }
 
     fn get_rss(&self) -> usize {
-        let mut info = mach_task_basic_info_data_t {
-            virtual_size: 0,
-            resident_size: 0,
-            resident_size_max: 0,
-            user_time: time_value_t {
-                seconds: 0,
-                microseconds: 0,
-            },
-            system_time: time_value_t {
-                seconds: 0,
-                microseconds: 0,
-            },
-            policy: 0,
-            suspend_count: 0,
-        };
-
-        let mut count = MACH_TASK_BASIC_INFO_COUNT;
-
-        unsafe {
-            task_info(
-                mach_task_self(),
-                MACH_TASK_BASIC_INFO,
-                &raw mut info as task_info_t,
-                &mut count as *mut mach_msg_type_number_t,
-            );
-        }
-
-        info.resident_size as usize
+        arch::get_rss()
     }
 
     fn write_images(&mut self) {
-        for image in get_images() {
+        for image in arch::get_images() {
             self.writer
                 .write_image(image.name, image.start_address, image.size)
         }
-    }
-}
-
-struct SysInfo {
-    exec_path: String,
-    page_size: usize,
-    phys_pages: usize,
-}
-
-fn get_sys_info() -> SysInfo {
-    let exec_path = process_path::get_executable_path()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
-
-    let (page_size, phys_pages) = unsafe {
-        let page_size = sysconf(libc::_SC_PAGESIZE) as usize;
-        let pages = sysconf(libc::_SC_PHYS_PAGES) as usize;
-
-        (page_size, pages)
-    };
-
-    SysInfo {
-        exec_path,
-        page_size,
-        phys_pages,
     }
 }
