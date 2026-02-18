@@ -153,10 +153,6 @@ fn init() {
                 name: "free".to_string(),
                 function: my_free as *const () as usize,
             },
-            Rebinding {
-                name: "atexit".to_string(),
-                function: my_exit as *const () as usize,
-            },
         ]);
     }
 }
