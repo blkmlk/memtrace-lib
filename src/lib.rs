@@ -33,10 +33,11 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(size, ptr as usize);
-    }
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_malloc(size, ptr as usize);
+        }
+    };
 
     ptr
 }
@@ -46,9 +47,10 @@ pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
     let original_calloc = ORIGINAL_CALLOC.unwrap();
     let ptr = original_calloc(num, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(num * size, ptr as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_malloc(num * size, ptr as usize);
+        }
     }
 
     ptr
@@ -59,9 +61,10 @@ pub unsafe extern "C" fn my_realloc(ptr_in: *mut c_void, size: size_t) -> *mut c
     let original_realloc = ORIGINAL_REALLOC.unwrap();
     let ptr_out = original_realloc(ptr_in, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+        }
     }
 
     ptr_out
@@ -72,16 +75,18 @@ pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_free(ptr as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_free(ptr as usize);
+        }
     }
 }
 
 pub extern "C" fn my_exit() {
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_exit();
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_exit();
+        }
     }
 }
 
