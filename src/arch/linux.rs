@@ -2,7 +2,6 @@ use std::{
     ffi::{c_void, CStr},
     fs,
     path::PathBuf,
-    ptr::null_mut,
 };
 
 use libc::{c_int, dl_iterate_phdr, dl_phdr_info};
@@ -10,27 +9,6 @@ use libc::{c_int, dl_iterate_phdr, dl_phdr_info};
 use super::{Image, SysInfo};
 
 pub fn get_image_slide() -> usize {
-    unsafe {
-        unsafe extern "C" fn iterate_phdr(
-            info: *mut dl_phdr_info,
-            _size: usize,
-            _data: *mut c_void,
-        ) -> c_int {
-            let name = (*info).dlpi_name;
-            let Ok(sym_name) = CStr::from_ptr(name).to_str() else {
-                return 1;
-            };
-
-            let addr = (*info).dlpi_addr;
-
-            println!("Name: {sym_name} -- {addr}");
-
-            0
-        }
-
-        dl_iterate_phdr(Some(iterate_phdr), null_mut());
-    }
-
     0
 }
 
@@ -47,7 +25,9 @@ pub fn get_images() -> Vec<Image> {
 
         // Get name
         let name = if info.dlpi_name.is_null() || (*info.dlpi_name == 0) {
-            "<program>".to_string()
+            main_executable_path()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| "<program>".to_string())
         } else {
             CStr::from_ptr(info.dlpi_name)
                 .to_string_lossy()
@@ -118,4 +98,8 @@ pub fn get_sys_info() -> SysInfo {
         page_size,
         phys_pages,
     }
+}
+
+fn main_executable_path() -> std::io::Result<PathBuf> {
+    fs::read_link("/proc/self/exe")
 }
