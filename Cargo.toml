@@ -17,7 +17,7 @@ fishhook = "0.2"
 memtrace-utils = "0.3.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-mach2 = { version = "0.4.2", optional = true }
+mach2 = "0.4.2"
 
 [lib]
 path = "src/lib.rs"
