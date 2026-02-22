@@ -1,4 +1,9 @@
 use libc::{c_char, c_void};
+use libc::{
+    mach_msg_type_number_t, mach_task_basic_info_data_t, sysconf, task_info, task_info_t,
+    time_value_t, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT,
+};
+use mach2::traps::mach_task_self;
 use std::ffi::CStr;
 
 // External declarations for dyld APIs
@@ -8,6 +13,7 @@ extern "C" {
     fn _dyld_get_image_header(index: u32) -> *const c_void;
     fn _dyld_get_image_vmaddr_slide(index: u32) -> isize;
 }
+use super::{Image, SysInfo};
 
 // Mach-O header structures
 #[repr(C)]
@@ -41,12 +47,6 @@ struct SegmentCommand64 {
     initprot: i32,
     nsects: u32,
     flags: u32,
-}
-
-pub struct Image {
-    pub name: String,
-    pub start_address: usize,
-    pub size: usize,
 }
 
 pub fn get_image_slide() -> usize {
@@ -96,5 +96,56 @@ pub fn get_images() -> Vec<Image> {
         }
 
         images
+    }
+}
+
+pub fn get_rss() -> usize {
+    let mut info = mach_task_basic_info_data_t {
+        virtual_size: 0,
+        resident_size: 0,
+        resident_size_max: 0,
+        user_time: time_value_t {
+            seconds: 0,
+            microseconds: 0,
+        },
+        system_time: time_value_t {
+            seconds: 0,
+            microseconds: 0,
+        },
+        policy: 0,
+        suspend_count: 0,
+    };
+
+    let mut count = MACH_TASK_BASIC_INFO_COUNT;
+
+    unsafe {
+        task_info(
+            mach_task_self(),
+            MACH_TASK_BASIC_INFO,
+            &raw mut info as task_info_t,
+            &mut count as *mut mach_msg_type_number_t,
+        );
+    }
+
+    info.resident_size as usize
+}
+
+pub fn get_sys_info() -> SysInfo {
+    let exec_path = process_path::get_executable_path()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+
+    let (page_size, phys_pages) = unsafe {
+        let page_size = sysconf(libc::_SC_PAGESIZE) as usize;
+        let pages = sysconf(libc::_SC_PHYS_PAGES) as usize;
+
+        (page_size, pages)
+    };
+
+    SysInfo {
+        exec_path,
+        page_size,
+        phys_pages,
     }
 }

@@ -2,9 +2,9 @@
 //!
 //! A dynamic library for collecting heap consumption.
 //!
-//! > **Platform support**: Currently tested only on macOS (aarch64-apple-darwin)
+//! > **Platform support**: Currently tested on Linux (x86_64) and macOS (aarch64-apple-darwin)
 
-mod dylib;
+mod arch;
 mod trace;
 mod trace_tree;
 mod tracker;
@@ -12,7 +12,7 @@ mod tracker;
 pub use memtrace_utils;
 
 use crate::tracker::Tracker;
-use fishhook::{register, Rebinding};
+use fishhook::arch::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
 use std::env;
 use std::ffi::c_void;
@@ -33,10 +33,11 @@ pub unsafe extern "C" fn my_malloc(size: size_t) -> *mut c_void {
     let original_malloc = ORIGINAL_MALLOC.unwrap();
     let ptr = original_malloc(size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(size, ptr as usize);
-    }
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_malloc(size, ptr as usize);
+        }
+    };
 
     ptr
 }
@@ -46,9 +47,10 @@ pub unsafe extern "C" fn my_calloc(num: size_t, size: size_t) -> *mut c_void {
     let original_calloc = ORIGINAL_CALLOC.unwrap();
     let ptr = original_calloc(num, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_malloc(num * size, ptr as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_malloc(num * size, ptr as usize);
+        }
     }
 
     ptr
@@ -59,9 +61,10 @@ pub unsafe extern "C" fn my_realloc(ptr_in: *mut c_void, size: size_t) -> *mut c
     let original_realloc = ORIGINAL_REALLOC.unwrap();
     let ptr_out = original_realloc(ptr_in, size);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_realloc(size, ptr_in as usize, ptr_out as usize);
+        }
     }
 
     ptr_out
@@ -72,16 +75,18 @@ pub unsafe extern "C" fn my_free(ptr: *mut c_void) {
     let original_free = ORIGINAL_FREE.unwrap();
     original_free(ptr);
 
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_free(ptr as usize);
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_free(ptr as usize);
+        }
     }
 }
 
 pub extern "C" fn my_exit() {
-    let mut guard = TRACKER.lock().unwrap();
-    if let Some(tracker) = guard.as_mut() {
-        tracker.on_exit();
+    if let Ok(mut guard) = TRACKER.try_lock() {
+        if let Some(tracker) = guard.as_mut() {
+            tracker.on_exit();
+        }
     }
 }
 
@@ -139,23 +144,19 @@ fn init() {
         register(vec![
             Rebinding {
                 name: "malloc".to_string(),
-                function: my_malloc as *const c_void,
+                function: my_malloc as *const () as usize,
             },
             Rebinding {
                 name: "calloc".to_string(),
-                function: my_calloc as *const c_void,
+                function: my_calloc as *const () as usize,
             },
             Rebinding {
                 name: "realloc".to_string(),
-                function: my_realloc as *const c_void,
+                function: my_realloc as *const () as usize,
             },
             Rebinding {
                 name: "free".to_string(),
-                function: my_free as *const c_void,
-            },
-            Rebinding {
-                name: "atexit".to_string(),
-                function: my_exit as *const c_void,
+                function: my_free as *const () as usize,
             },
         ]);
     }
