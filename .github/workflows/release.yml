@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-macos:
-    name: Build MacOS ARM
+    name: Build macOS ARM
     runs-on: macos-latest
     steps:
       - name: Checkout source
@@ -32,16 +32,52 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libmemtrack
+          name: macos-aarch64
           path: target/release/libmemtrace_lib.dylib
+
+  build-linux:
+    name: Build Linux (glibc + musl)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install system deps (musl)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Install Rust targets
+        run: |
+          rustup target add x86_64-unknown-linux-gnu
+          rustup target add x86_64-unknown-linux-musl
+
+      - name: Build Linux shared library (glibc)
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Build Linux shared library (musl)
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Upload Linux glibc artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-gnu
+          path: target/x86_64-unknown-linux-gnu/release/libmemtrace_lib.so
+
+      - name: Upload Linux musl artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-musl
+          path: target/x86_64-unknown-linux-musl/release/libmemtrace_lib.so
 
   release:
     name: Create GitHub Release
     permissions:
       contents: write
-    needs: build-macos
+    needs:
+      - build-macos
+      - build-linux
     runs-on: ubuntu-latest
-
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -51,6 +87,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: all-artifacts/**/*.dylib
+          files: |
+            all-artifacts/**/*.dylib
+            all-artifacts/**/*.so
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
