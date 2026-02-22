@@ -1,12 +1,10 @@
+use super::{Image, SysInfo};
+use libc::{c_int, dl_iterate_phdr, dl_phdr_info};
 use std::{
     ffi::{c_void, CStr},
     fs,
     path::PathBuf,
 };
-
-use libc::{c_int, dl_iterate_phdr, dl_phdr_info};
-
-use super::{Image, SysInfo};
 
 pub fn get_image_slide() -> usize {
     0
@@ -23,7 +21,6 @@ pub fn get_images() -> Vec<Image> {
         let images = &mut *(data as *mut Vec<Image>);
         let info = &*info;
 
-        // Get name
         let name = if info.dlpi_name.is_null() || (*info.dlpi_name == 0) {
             main_executable_path()
                 .map(|p| p.to_string_lossy().into_owned())
@@ -35,8 +32,6 @@ pub fn get_images() -> Vec<Image> {
         };
 
         let mut image_size = 0usize;
-
-        // Sum PT_LOAD segments (equivalent to LC_SEGMENT_64)
         for i in 0..info.dlpi_phnum {
             let phdr = &*info.dlpi_phdr.add(i as usize);
             if phdr.p_type == libc::PT_LOAD {
@@ -64,7 +59,6 @@ pub fn get_rss() -> usize {
     let statm = fs::read_to_string("/proc/self/statm").unwrap_or_default();
     let mut it = statm.split_whitespace();
 
-    // skip "size"
     let _size_pages = it.next();
     let rss_pages: usize = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
 
@@ -82,7 +76,6 @@ pub fn get_sys_info() -> SysInfo {
         .to_string_lossy()
         .into_owned();
 
-    // System info
     let (page_size, phys_pages) = unsafe {
         let page_size = libc::sysconf(libc::_SC_PAGESIZE);
         let pages = libc::sysconf(libc::_SC_PHYS_PAGES);
