@@ -12,7 +12,7 @@ mod tracker;
 pub use memtrace_utils;
 
 use crate::tracker::Tracker;
-use fishhook::arch::{register, Rebinding};
+use fishhook::{register, Rebinding};
 use libc::{dlsym, size_t, RTLD_NEXT};
 use std::env;
 use std::ffi::c_void;
