@@ -10,7 +10,6 @@ pub struct Tracker {
     writer: PipeWriter,
     trace_tree: TraceTree,
     started_at: Instant,
-    slide: usize,
 }
 
 impl Tracker {
@@ -21,7 +20,6 @@ impl Tracker {
             writer: PipeWriter::new(file),
             trace_tree: TraceTree::new(),
             started_at: Instant::now(),
-            slide: 0,
         }
     }
 
@@ -34,18 +32,15 @@ impl Tracker {
         self.writer
             .write_page_info(sys_info.page_size, sys_info.phys_pages);
 
-        self.slide = arch::get_image_slide();
-
         self.write_images();
     }
 
     pub fn on_malloc(&mut self, size: usize, ptr: usize) {
         let trace = Trace::new();
 
-        let idx = self.trace_tree.index(trace, |ip, parent| {
-            let ip = ip - self.slide;
-            self.writer.write_trace(ip, parent)
-        });
+        let idx = self
+            .trace_tree
+            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
 
         self.writer.write_alloc(size, idx, ptr);
     }
@@ -57,10 +52,9 @@ impl Tracker {
             self.on_free(ptr_in);
         }
 
-        let idx = self.trace_tree.index(trace, |ip, parent| {
-            let ip = ip - self.slide;
-            self.writer.write_trace(ip, parent)
-        });
+        let idx = self
+            .trace_tree
+            .index(trace, |ip, parent| self.writer.write_trace(ip, parent));
 
         self.writer.write_alloc(size, idx, ptr_out);
     }

@@ -49,10 +49,6 @@ struct SegmentCommand64 {
     flags: u32,
 }
 
-pub fn get_image_slide() -> usize {
-    unsafe { _dyld_get_image_vmaddr_slide(1) as usize }
-}
-
 pub fn get_images() -> Vec<Image> {
     unsafe {
         let image_count = _dyld_image_count();
@@ -70,7 +66,7 @@ pub fn get_images() -> Vec<Image> {
             };
 
             let header = _dyld_get_image_header(i);
-            let slide = _dyld_get_image_vmaddr_slide(i);
+            let vmaddr = _dyld_get_image_vmaddr_slide(i);
 
             let image_header = header as *const MachHeader;
             let mut image_size = 0;
@@ -90,7 +86,7 @@ pub fn get_images() -> Vec<Image> {
 
             images.push(Image {
                 name: image_name,
-                start_address: header as usize - slide as usize,
+                start_address: vmaddr as usize,
                 size: image_size as usize,
             });
         }

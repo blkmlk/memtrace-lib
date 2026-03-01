@@ -6,10 +6,6 @@ use std::{
     path::PathBuf,
 };
 
-pub fn get_image_slide() -> usize {
-    0
-}
-
 pub fn get_images() -> Vec<Image> {
     let mut images = Vec::<Image>::new();
 
